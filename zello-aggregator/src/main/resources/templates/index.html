@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zello Message Vault Aggregator</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+        .main-container { display: flex; gap: 100px; align-items: flex-start; }
+        .content { flex: 3; }
+        .sidebar { flex: 1; }
+        .container { width: 100%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        .message-list { list-style: none; padding: 0; }
+        .message-item { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #eee; }
+        .message-details { display: flex; flex-direction: column; flex-grow: 1; margin-right: 15px; }
+        .sender { font-weight: bold; color: #0056b3; }
+        .timestamp { font-size: 0.9em; color: #666; }
+        .play-button { padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; flex-shrink: 0; }
+        .audio-player { width: 100%; margin-top: 20px; }
+        .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding: 10px; border-top: 1px solid #eee; }
+        .pagination a { text-decoration: none; background-color: #007bff; color: white; padding: 8px 15px; border-radius: 5px; }
+        footer { text-align: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eee; font-size: 0.9em; color: #888; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .calendar-header a { text-decoration: none; font-size: 1.5em; color: #007bff; padding: 0 10px; }
+        .calendar-header h3 { margin: 0; }
+        .calendar-table { width: 100%; border-collapse: collapse; text-align: center; }
+        .calendar-table th { padding: 5px; color: #666; font-size: 0.9em; }
+        .calendar-table td { padding: 2px; border: 1px solid #eee; }
+        .day-link { display: block; padding: 8px 5px; text-decoration: none; color: #0056b3; }
+        .today { background-color: #fffbe6; }
+        .today .day-link { font-weight: bold; }
+        .no-day { background-color: #f9f9f9; }
+        .transcription-text { font-style: italic; color: #555; font-size: 0.95em; margin-top: 8px; padding-left: 10px; border-left: 3px solid #e0e0e0; }
+        .btn-view-all { display: inline-block; margin-bottom: 20px; padding: 8px 15px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 5px; font-size: 0.9em; }
+        .btn-view-all:hover { background-color: #5a6268; }
+    </style>
+</head>
+<body>
+<div class="main-container">
+
+    <div class="content">
+        <div class="container">
+            <h1>Zello Message Vault Aggregator</h1>
+            <h2 th:if="${is_day_view}" th:text="'Messages for ' + ${#temporals.format(viewing_date, 'yyyy-MM-dd')}"></h2>
+            <h2 th:unless="${is_day_view}" th:text="'Channel: ' + ${channel}"></h2>
+
+            <div th:if="${is_day_view}">
+                <a th:href="@{/}" class="btn-view-all">« Return to Full History (Paginated)</a>
+            </div>
+
+            <audio id="main-audio-player" class="audio-player" controls></audio>
+            <ul class="message-list">
+                <th:block th:if="${!messages.isEmpty()}">
+                    <li th:each="message : ${messages}" th:if="${message.mediaKey != null}" class="message-item">
+                        <div class="message-details">
+                            <span class="sender" th:text="${message.displayName}"></span>
+                            <span class="timestamp" th:text="${message.time24h}"></span>
+                            <p th:if="${message.transcription != null and !message.transcription.isEmpty()}"
+                               class="transcription-text" th:text='|"${message.transcription}"|'></p>
+                        </div>
+                        <button class="play-button" th:attr="data-audio-src=@{/play_audio/{key}(key=${message.mediaKey})}">Play</button>
+                    </li>
+                </th:block>
+                <li th:if="${messages.isEmpty()}">No messages found.</li>
+            </ul>
+
+            <div th:if="${!is_day_view and total_pages > 1}" class="pagination">
+                <a th:if="${page_num > 1}" th:href="@{/page/{num}(num=${page_num - 1})}">« Previous</a>
+                <span th:text="'Page ' + ${page_num} + ' of ' + ${total_pages}"></span>
+                <a th:if="${page_num < total_pages}" th:href="@{/page/{num}(num=${page_num + 1})}">Next »</a>
+            </div>
+
+            <footer>
+                <p>Copyright 2025 Charles L. Eakins</p>
+                <!-- ADDED: Logout Link -->
+                <p><a th:href="@{/logout}">Logout</a></p>
+            </footer>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="container">
+            <div class="calendar-header">
+                <a th:href="@{/calendar/{year}/{month}(year=${prev_month_date.year}, month=${prev_month_date.monthValue})}">«</a>
+                <h3 th:text="${#temporals.format(cal_date, 'MMMM yyyy')}"></h3>
+                <a th:href="@{/calendar/{year}/{month}(year=${next_month_date.year}, month=${next_month_date.monthValue})}">»</a>
+            </div>
+            <table class="calendar-table">
+                <thead>
+                <tr><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th><th>Su</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="week : ${calendar_weeks}">
+                    <td th:each="day : ${week}"
+                        th:classappend="${day == 0 ? 'no-day' : ''} + ${ (today.dayOfMonth == day and today.monthValue == cal_date.monthValue and today.year == cal_date.year) ? 'today' : ''}">
+                        <a th:if="${day > 0}" th:href="@{/date/{year}/{month}/{day}(year=${cal_date.year}, month=${cal_date.monthValue}, day=${day})}"
+                           class="day-link" th:text="${day}"></a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const audioPlayer = document.getElementById('main-audio-player');
+        const playButtons = document.querySelectorAll('.play-button');
+        playButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const audioSrc = this.dataset.audioSrc;
+                audioPlayer.src = audioSrc;
+                audioPlayer.play();
+            });
+        });
+    });
+</script>
+</body>
+</html>
