@@ -9,7 +9,7 @@
         <relativePath/>
     </parent>
     <groupId>com.charles.eakins</groupId>
-    <artifactId>zello-aggregator</artifactId>
+    <artifactId>zello-vault-aggregator</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 
     <name>Zello Message Vault Aggregator</name>
