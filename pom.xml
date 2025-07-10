@@ -12,14 +12,11 @@
     <artifactId>zello-aggregator</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 
-    <!-- The single dynamic packaging tag is now at the bottom of the file -->
-
     <name>Zello Message Vault Aggregator</name>
     <description>A Spring Boot application to view Zello message history.</description>
 
     <properties>
-        <java.version>24</java.version>
-        <!-- FIX #1: Define the default packaging type as a property -->
+        <java.version>21</java.version> <!-- Set to 21 as this is confirmed working for your environment -->
         <packaging.type>jar</packaging.type>
     </properties>
 
@@ -34,12 +31,47 @@
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
+        <!-- Main testing dependency with JUnit EXCLUDED -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.vintage</groupId>
+                    <artifactId>junit-vintage-engine</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.junit.jupiter</groupId>
+                    <artifactId>junit-jupiter</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Added TestNG dependency -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>7.10.2</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Dependency for running TestNG with Maven -->
+        <dependency>
+            <groupId>org.apache.maven.surefire</groupId>
+            <artifactId>surefire-testng</artifactId>
+            <version>3.3.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Dependency for WAR deployment (marked as provided) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-tomcat</artifactId>
             <scope>provided</scope>
         </dependency>
 
+        <!-- Configuration Processor dependency -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
@@ -48,18 +80,20 @@
     </dependencies>
 
     <profiles>
+        <!-- Profile for building the standalone executable JAR -->
         <profile>
             <id>executable-jar</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
-            <!-- No special properties needed, it will use the default 'jar' -->
+            <!-- Uses default 'jar' packaging type from properties -->
         </profile>
 
+        <!-- Profile for building the deployable WAR file -->
         <profile>
             <id>deployable-war</id>
             <properties>
-                <!-- This property will OVERRIDE the default when this profile is active -->
+                <!-- This property overrides the default when this profile is active -->
                 <packaging.type>war</packaging.type>
             </properties>
         </profile>
@@ -71,11 +105,21 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!-- Plugin to ensure the compiler uses the correct Java version -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                </configuration>
+            </plugin>
         </plugins>
+        <!-- Sets the final name of the artifact (e.g., target/zello-aggregator.war) -->
         <finalName>zello-aggregator</finalName>
     </build>
 
-    <!-- FIX #2: The single, dynamic packaging tag that reads the property -->
+    <!-- The single, dynamic packaging tag that reads the property from the active profile -->
     <packaging>${packaging.type}</packaging>
 
 </project>
