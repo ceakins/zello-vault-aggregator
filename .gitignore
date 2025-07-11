@@ -40,3 +40,4 @@ build/
 
 .idea/misc.xml
 .idea/misc.xml
+src/main/resources/application.properties
