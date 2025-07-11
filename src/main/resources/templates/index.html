@@ -6,7 +6,7 @@
     <title>Zello Message Vault Aggregator</title>
     <style>
         body { font-family: sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-        .main-container { display: flex; gap: 100px; align-items: flex-start; }
+        .main-container { display: flex; gap: 30px; align-items: flex-start; }
         .content { flex: 3; }
         .sidebar { flex: 1; }
         .container { width: 100%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -33,10 +33,22 @@
         .no-day { background-color: #f9f9f9; }
         .transcription-text { font-style: italic; color: #555; font-size: 0.95em; margin-top: 8px; padding-left: 10px; border-left: 3px solid #e0e0e0; }
         .btn-view-all { display: inline-block; margin-bottom: 20px; padding: 8px 15px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 5px; font-size: 0.9em; }
-        .btn-view-all:hover { background-color: #5a6268; }
+
+        /* ADDED: Styles for session timeout modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: white; padding: 30px; border-radius: 8px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .modal-box h3 { margin-top: 0; }
+        .modal-buttons { margin-top: 20px; }
+        .modal-buttons button { padding: 10px 20px; margin: 0 10px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; }
+        .btn-extend { background-color: #28a745; color: white; border-color: #28a745;}
+        .btn-logout { background-color: #dc3545; color: white; border-color: #dc3545;}
     </style>
 </head>
-<body>
+<!-- ADDED: Data attributes to hold timing config for JavaScript -->
+<body th:data-session-timeout="${session_timeout_seconds}"
+      th:data-session-warning="${session_warning_seconds}"
+      th:data-auto-refresh="${auto_refresh_seconds}">
+
 <div class="main-container">
 
     <div class="content">
@@ -44,15 +56,13 @@
             <h1>Zello Message Vault Aggregator</h1>
             <h2 th:if="${is_day_view}" th:text="'Messages for ' + ${#temporals.format(viewing_date, 'yyyy-MM-dd')}"></h2>
             <h2 th:unless="${is_day_view}" th:text="'Channel: ' + ${channel}"></h2>
-
-            <div th:if="${is_day_view}">
-                <a th:href="@{/}" class="btn-view-all">« Return to Full History (Paginated)</a>
-            </div>
+            <div th:if="${is_day_view}"><a th:href="@{/}" class="btn-view-all">« Return to Full History</a></div>
 
             <audio id="main-audio-player" class="audio-player" controls></audio>
-            <ul class="message-list">
+            <ul id="message-list-ul" class="message-list">
                 <th:block th:if="${!messages.isEmpty()}">
-                    <li th:each="message : ${messages}" th:if="${message.mediaKey != null}" class="message-item">
+                    <li th:each="message : ${messages}" th:if="${message.mediaKey != null}" class="message-item"
+                        th:data-timestamp-raw="${message.rawTimestamp}"> <!-- ADDED: Raw timestamp for JS -->
                         <div class="message-details">
                             <span class="sender" th:text="${message.displayName}"></span>
                             <span class="timestamp" th:text="${message.time24h}"></span>
@@ -62,7 +72,7 @@
                         <button class="play-button" th:attr="data-audio-src=@{/play_audio/{key}(key=${message.mediaKey})}">Play</button>
                     </li>
                 </th:block>
-                <li th:if="${messages.isEmpty()}">No messages found.</li>
+                <li th:if="${messages.isEmpty()}" id="no-messages-item">No messages found.</li>
             </ul>
 
             <div th:if="${!is_day_view and total_pages > 1}" class="pagination">
@@ -73,13 +83,12 @@
 
             <footer>
                 <p>Copyright 2025 Charles L. Eakins</p>
-                <!-- ADDED: Logout Link -->
                 <p><a th:href="@{/logout}">Logout</a></p>
             </footer>
         </div>
     </div>
 
-    <div class="sidebar">
+    <div class="sidebar"> <!-- Calendar sidebar is unchanged -->
         <div class="container">
             <div class="calendar-header">
                 <a th:href="@{/calendar/{year}/{month}(year=${prev_month_date.year}, month=${prev_month_date.monthValue})}">«</a>
@@ -87,15 +96,11 @@
                 <a th:href="@{/calendar/{year}/{month}(year=${next_month_date.year}, month=${next_month_date.monthValue})}">»</a>
             </div>
             <table class="calendar-table">
-                <thead>
-                <tr><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th><th>Su</th></tr>
-                </thead>
+                <thead><tr><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th><th>Su</th></tr></thead>
                 <tbody>
                 <tr th:each="week : ${calendar_weeks}">
-                    <td th:each="day : ${week}"
-                        th:classappend="${day == 0 ? 'no-day' : ''} + ${ (today.dayOfMonth == day and today.monthValue == cal_date.monthValue and today.year == cal_date.year) ? 'today' : ''}">
-                        <a th:if="${day > 0}" th:href="@{/date/{year}/{month}/{day}(year=${cal_date.year}, month=${cal_date.monthValue}, day=${day})}"
-                           class="day-link" th:text="${day}"></a>
+                    <td th:each="day : ${week}" th:classappend="${day == 0 ? 'no-day' : ''} + ${(today.dayOfMonth == day and today.monthValue == cal_date.monthValue and today.year == cal_date.year) ? 'today' : ''}">
+                        <a th:if="${day > 0}" th:href="@{/date/{year}/{month}/{day}(year=${cal_date.year}, month=${cal_date.monthValue}, day=${day})}" class="day-link" th:text="${day}"></a>
                     </td>
                 </tr>
                 </tbody>
@@ -104,17 +109,134 @@
     </div>
 </div>
 
+<!-- ADDED: Hidden modal dialog for session timeout -->
+<div id="session-modal" class="modal-overlay">
+    <div class="modal-box">
+        <h3>Session Expiring Soon</h3>
+        <p>Your session will time out due to inactivity. Do you want to stay logged in?</p>
+        <div class="modal-buttons">
+            <button id="logout-btn" class="btn-logout">Logout</button>
+            <button id="extend-session-btn" class="btn-extend">Stay Logged In</button>
+        </div>
+    </div>
+</div>
+
+<!-- ADDED: HTML Template for creating new messages with JavaScript -->
+<template id="message-item-template">
+    <li class="message-item" data-timestamp-raw="">
+        <div class="message-details">
+            <span class="sender"></span>
+            <span class="timestamp"></span>
+            <p class="transcription-text" style="display: none;"></p>
+        </div>
+        <button class="play-button" data-audio-src="">Play</button>
+    </li>
+</template>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const audioPlayer = document.getElementById('main-audio-player');
-        const playButtons = document.querySelectorAll('.play-button');
-        playButtons.forEach(button => {
+        const messageList = document.getElementById('message-list-ul');
+
+        // Make "Play" buttons work for existing and new messages
+        function addPlayButtonListener(button) {
             button.addEventListener('click', function() {
                 const audioSrc = this.dataset.audioSrc;
                 audioPlayer.src = audioSrc;
                 audioPlayer.play();
             });
-        });
+        }
+
+        document.querySelectorAll('.play-button').forEach(addPlayButtonListener);
+
+        // --- Session Timeout Warner ---
+        const bodyData = document.body.dataset;
+        const sessionTimeout = parseInt(bodyData.sessionTimeout, 10);
+        const sessionWarning = parseInt(bodyData.sessionWarning, 10);
+
+        if (sessionTimeout && sessionWarning) {
+            const warningTimeout = (sessionTimeout - sessionWarning) * 1000;
+            let warningTimer;
+
+            const sessionModal = document.getElementById('session-modal');
+            const extendBtn = document.getElementById('extend-session-btn');
+            const logoutBtn = document.getElementById('logout-btn');
+
+            function startWarningTimer() {
+                clearTimeout(warningTimer);
+                warningTimer = setTimeout(() => {
+                    sessionModal.style.display = 'flex';
+                }, warningTimeout > 0 ? warningTimeout : 0);
+            }
+
+            extendBtn.addEventListener('click', () => {
+                fetch('/api/ping').then(() => {
+                    sessionModal.style.display = 'none';
+                    startWarningTimer(); // Restart the timer
+                });
+            });
+
+            logoutBtn.addEventListener('click', () => {
+                window.location.href = '/logout';
+            });
+
+            startWarningTimer();
+        }
+
+        // --- Auto-Refresh for New Messages ---
+        const autoRefreshInterval = parseInt(bodyData.autoRefresh, 10) * 1000;
+        const isDayView = document.querySelector("h2[th\\:if*='is_day_view']") !== null;
+
+        if (autoRefreshInterval > 0 && !isDayView) {
+            setInterval(checkForNewMessages, autoRefreshInterval);
+        }
+
+        function createMessageElement(message) {
+            const template = document.getElementById('message-item-template');
+            const clone = template.content.cloneNode(true);
+            const listItem = clone.querySelector('.message-item');
+
+            listItem.dataset.timestampRaw = message.rawTimestamp;
+            listItem.querySelector('.sender').textContent = message.displayName;
+            listItem.querySelector('.timestamp').textContent = message.time24h;
+
+            const playButton = listItem.querySelector('.play-button');
+            playButton.dataset.audioSrc = `/play_audio/${message.mediaKey}`;
+            addPlayButtonListener(playButton);
+
+            if (message.transcription) {
+                const p = listItem.querySelector('.transcription-text');
+                p.textContent = `"${message.transcription}"`;
+                p.style.display = 'block';
+            }
+
+            return listItem;
+        }
+
+        function checkForNewMessages() {
+            const firstMessage = messageList.querySelector('.message-item');
+            if (!firstMessage) return; // Don't refresh if there are no messages
+
+            const latestTimestamp = firstMessage.dataset.timestampRaw;
+
+            fetch(`/api/messages/latest?since=${latestTimestamp}`)
+                .then(response => response.json())
+                .then(newMessages => {
+                    if (newMessages && newMessages.length > 0) {
+                        // Remove the "No messages found" item if it exists
+                        const noMessagesItem = document.getElementById('no-messages-item');
+                        if (noMessagesItem) {
+                            noMessagesItem.remove();
+                        }
+                        // Prepend new messages, newest first
+                        newMessages.reverse().forEach(message => {
+                            const messageElement = createMessageElement(message);
+                            messageList.prepend(messageElement);
+                        });
+                    }
+                })
+                .catch(error => console.error('Error checking for new messages:', error));
+        }
     });
 </script>
 </body>

@@ -9,24 +9,22 @@ import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.InputStreamResource; // <-- CHANGED
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.io.IOException; // <-- ADDED
+import java.io.IOException;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,6 +44,11 @@ public class VaultController {
     private String displayTimezone;
     @Value("${app.session-timeout-seconds}")
     private int sessionTimeoutSeconds;
+    // ADDED: Inject new properties
+    @Value("${app.session-warning-seconds}")
+    private int sessionWarningSeconds;
+    @Value("${app.auto-refresh-seconds}")
+    private int autoRefreshSeconds;
 
     public VaultController(ZelloApiService zelloService, ZelloApiConfig zelloApiConfig) {
         this.zelloService = zelloService;
@@ -77,28 +80,26 @@ public class VaultController {
                     sid = zelloService.authenticate(username, password);
                 }
             }
-            session.setAttribute("zelloSid", sid);
+            if (sid != null) {
+                session.setAttribute("zelloSid", sid);
+            }
         }
         return sid;
     }
 
     @GetMapping("/login")
-    public String loginPage() {
-        return "login";
-    }
+    public String loginPage() { return "login"; }
 
     @PostMapping("/login")
     public String handleLogin(@RequestParam String username, @RequestParam String password, HttpSession session, RedirectAttributes redirectAttributes) {
         String sid = zelloService.authenticate(username, password);
         if (sid != null) {
-            log.info("User '{}' successfully logged in.", username);
             session.setAttribute("user_username", username);
             session.setAttribute("user_password", password);
             session.setAttribute("zelloSid", sid);
             session.setMaxInactiveInterval(sessionTimeoutSeconds);
             return "redirect:/";
         } else {
-            log.warn("Login failed for username: {}", username);
             redirectAttributes.addFlashAttribute("error", "Invalid username or password.");
             return "redirect:/login";
         }
@@ -110,6 +111,13 @@ public class VaultController {
         return "redirect:/login";
     }
 
+    // This helper method adds session timing info to the model
+    private void addAppConfigToModel(Model model) {
+        model.addAttribute("session_timeout_seconds", sessionTimeoutSeconds);
+        model.addAttribute("session_warning_seconds", sessionWarningSeconds);
+        model.addAttribute("auto_refresh_seconds", autoRefreshSeconds);
+    }
+
     @GetMapping({"/", "/page/{page_num}", "/calendar/{year}/{month}"})
     public String messageVault(
             @PathVariable(required = false) Integer page_num,
@@ -117,15 +125,9 @@ public class VaultController {
             @PathVariable(required = false) Integer month,
             Model model, HttpSession session) {
 
-        if (!isUserAuthenticated(session)) {
-            return "redirect:/login";
-        }
-
+        if (!isUserAuthenticated(session)) { return "redirect:/login"; }
         String sid = getSid(session);
-        if (sid == null) {
-            model.addAttribute("error", "Could not authenticate with Zello.");
-            return "error";
-        }
+        if (sid == null) { model.addAttribute("error", "Could not authenticate with Zello."); return "error"; }
 
         int currentPage = (page_num == null) ? 1 : page_num;
         int startIndex = (currentPage - 1) * messagesPerPage;
@@ -134,7 +136,7 @@ public class VaultController {
         Map<String, String> userMap = zelloService.getUserDisplayNameMap(sid);
 
         processMessagesAndAddToModel(model, history, userMap);
-
+        addAppConfigToModel(model); // ADDED
         model.addAttribute("page_num", currentPage);
         model.addAttribute("total_pages", (history != null && history.getTotal() > 0) ? (int) Math.ceil((double) history.getTotal() / messagesPerPage) : 0);
         model.addAttribute("is_day_view", false);
@@ -147,28 +149,20 @@ public class VaultController {
 
     @GetMapping("/date/{year}/{month}/{day}")
     public String dayView(@PathVariable int year, @PathVariable int month, @PathVariable int day, Model model, HttpSession session) {
-        if (!isUserAuthenticated(session)) {
-            return "redirect:/login";
-        }
-
+        if (!isUserAuthenticated(session)) { return "redirect:/login"; }
         String sid = getSid(session);
-        if (sid == null) {
-            model.addAttribute("error", "Could not authenticate with Zello.");
-            return "error";
-        }
+        if (sid == null) { model.addAttribute("error", "Could not authenticate with Zello."); return "error"; }
 
         ZoneId displayZoneId = ZoneId.of(displayTimezone);
         LocalDate requestedDate = LocalDate.of(year, month, day);
-        ZonedDateTime startDt = requestedDate.atStartOfDay(displayZoneId);
-        ZonedDateTime endDt = requestedDate.plusDays(1).atStartOfDay(displayZoneId);
-        long startTs = startDt.toEpochSecond();
-        long endTs = endDt.toEpochSecond();
+        long startTs = requestedDate.atStartOfDay(displayZoneId).toEpochSecond();
+        long endTs = requestedDate.plusDays(1).atStartOfDay(displayZoneId).toEpochSecond();
 
         HistoryResponse history = zelloService.getMessages(sid, targetChannel, 0, 1000, startTs, endTs);
         Map<String, String> userMap = zelloService.getUserDisplayNameMap(sid);
 
         processMessagesAndAddToModel(model, history, userMap);
-
+        addAppConfigToModel(model); // ADDED
         model.addAttribute("is_day_view", true);
         model.addAttribute("viewing_date", requestedDate);
         addCalendarDataToModel(model, year, month);
@@ -176,57 +170,64 @@ public class VaultController {
         return "index";
     }
 
-    // FIX: The core logic for this method is now simpler and more robust.
     @GetMapping("/play_audio/{mediaKey}")
-    public ResponseEntity<Resource> playAudio(@PathVariable String mediaKey, HttpSession session) throws InterruptedException, IOException {
+    public ResponseEntity<Resource> playAudio(@PathVariable String mediaKey, HttpSession session) throws IOException {
         String sid = getSid(session);
-        if (sid == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
+        if (sid == null) { return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build(); }
         try {
-            long startTime = System.currentTimeMillis();
-            long timeout = 40000;
-            MediaResponse mediaInfo;
-
+            long startTime = System.currentTimeMillis(); long timeout = 40000; MediaResponse mediaInfo;
             while (System.currentTimeMillis() - startTime < timeout) {
                 mediaInfo = zelloService.getMediaInfo(sid, mediaKey);
-
-                if (mediaInfo == null) {
-                    log.warn("Received null response for media info key: {}. Retrying...", mediaKey);
-                    Thread.sleep(2000);
-                    continue;
-                }
+                if (mediaInfo == null) { log.warn("Null media info for key: {}. Retrying...", mediaKey); Thread.sleep(2000); continue; }
                 String status = mediaInfo.getStatus();
                 if ("OK".equals(status)) {
-                    log.info("Media is ready. Streaming from URL: {}", mediaInfo.getUrl());
-
+                    log.info("Media ready. Streaming from URL: {}", mediaInfo.getUrl());
                     InputStreamResource audioResource = zelloService.getMediaResource(mediaInfo.getUrl(), sid);
-
-                    return ResponseEntity.ok()
-                            .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                            .body(audioResource);
-
+                    return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(audioResource);
                 } else if ("Waiting".equals(status) || "Working".equals(status)) {
-                    log.info("Media not ready. Status: {}, Progress: {}%. Waiting...", status, mediaInfo.getProgress());
-                    Thread.sleep(2000);
-                } else {
-                    log.error("Zello returned an unhandled error status for media: {}", status);
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-                }
+                    log.info("Media not ready. Status: {}, Progress: {}%. Waiting...", status, mediaInfo.getProgress()); Thread.sleep(2000);
+                } else { log.error("Unhandled Zello status for media: {}", status); return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); }
             }
-            log.warn("Timeout waiting for media to be ready for key: {}", mediaKey);
-            return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).build();
-
-        } catch (HttpClientErrorException e) {
-            log.error("HTTP client error while fetching media for key {}: {}", mediaKey, e.getStatusCode(), e);
-            return ResponseEntity.status(e.getStatusCode()).build();
-        } catch (Exception e) {
-            log.error("Generic error while fetching media for key {}:", mediaKey, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+            log.warn("Timeout waiting for media key: {}", mediaKey); return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).build();
+        } catch (Exception e) { log.error("Generic error fetching media for key {}:", mediaKey, e); return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); }
     }
 
+    // --- NEW API Endpoints for JavaScript ---
+
+    @GetMapping("/api/ping")
+    public ResponseEntity<Void> pingSession() {
+        // The act of making an authenticated request resets the session timer.
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/api/messages/latest")
+    @ResponseBody
+    public List<ProcessedMessage> getLatestMessages(@RequestParam("since") long lastTimestamp, HttpSession session) {
+        if (!isUserAuthenticated(session)) { return Collections.emptyList(); }
+        String sid = getSid(session);
+        if (sid == null) { return Collections.emptyList(); }
+
+        long startTs = lastTimestamp + 1; // Get messages *after* the last one we have
+
+        HistoryResponse history = zelloService.getMessages(sid, targetChannel, 0, 100, startTs, null);
+        if (history == null || history.getMessages() == null || history.getMessages().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<String, String> userMap = zelloService.getUserDisplayNameMap(sid);
+
+        ZoneId displayZoneId = ZoneId.of(displayTimezone);
+        return history.getMessages().stream()
+                .map(msg -> new ProcessedMessage(
+                        userMap.getOrDefault(msg.getSender(), msg.getSender()),
+                        Instant.ofEpochSecond(msg.getTimestamp()).atZone(displayZoneId)
+                                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                        msg.getMediaKey(),
+                        msg.getTranscription(),
+                        msg.getTimestamp() // Pass raw timestamp to JS
+                ))
+                .collect(Collectors.toList());
+    }
 
     private void processMessagesAndAddToModel(Model model, HistoryResponse history, Map<String, String> userMap) {
         ZoneId displayZoneId = ZoneId.of(displayTimezone);
@@ -238,7 +239,8 @@ public class VaultController {
                             Instant.ofEpochSecond(msg.getTimestamp()).atZone(displayZoneId)
                                     .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
                             msg.getMediaKey(),
-                            msg.getTranscription()
+                            msg.getTranscription(),
+                            msg.getTimestamp()
                     ))
                     .collect(Collectors.toList());
         }
@@ -247,38 +249,18 @@ public class VaultController {
     }
 
     private void addCalendarDataToModel(Model model, int year, int month) {
-        model.addAttribute("today", LocalDate.now());
-        model.addAttribute("cal_date", LocalDate.of(year, month, 1));
-
+        model.addAttribute("today", LocalDate.now()); model.addAttribute("cal_date", LocalDate.of(year, month, 1));
         LocalDate firstDayOfMonth = LocalDate.of(year, month, 1);
-        LocalDate prevMonth = firstDayOfMonth.minusMonths(1);
-        LocalDate nextMonth = firstDayOfMonth.plusMonths(1);
-
-        model.addAttribute("prev_month_date", prevMonth);
-        model.addAttribute("next_month_date", nextMonth);
-
-        List<List<Integer>> weeks = new ArrayList<>();
-        LocalDate current = firstDayOfMonth;
-        int dayOfWeekOfFirst = current.getDayOfWeek().getValue() % 7;
-
-        List<Integer> currentWeek = new ArrayList<>();
-        for (int i = 0; i < dayOfWeekOfFirst; i++) {
-            currentWeek.add(0);
-        }
+        model.addAttribute("prev_month_date", firstDayOfMonth.minusMonths(1)); model.addAttribute("next_month_date", firstDayOfMonth.plusMonths(1));
+        List<List<Integer>> weeks = new ArrayList<>(); LocalDate current = firstDayOfMonth;
+        int dayOfWeekOfFirst = current.getDayOfWeek().getValue() % 7; List<Integer> currentWeek = new ArrayList<>();
+        for (int i = 0; i < dayOfWeekOfFirst; i++) { currentWeek.add(0); }
         while (current.getMonthValue() == month) {
             currentWeek.add(current.getDayOfMonth());
-            if (currentWeek.size() == 7) {
-                weeks.add(currentWeek);
-                currentWeek = new ArrayList<>();
-            }
+            if (currentWeek.size() == 7) { weeks.add(currentWeek); currentWeek = new ArrayList<>(); }
             current = current.plusDays(1);
         }
-        if (!currentWeek.isEmpty()) {
-            while(currentWeek.size() < 7) {
-                currentWeek.add(0);
-            }
-            weeks.add(currentWeek);
-        }
+        if (!currentWeek.isEmpty()) { while(currentWeek.size() < 7) { currentWeek.add(0); } weeks.add(currentWeek); }
         model.addAttribute("calendar_weeks", weeks);
     }
 }
