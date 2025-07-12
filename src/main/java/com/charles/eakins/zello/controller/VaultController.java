@@ -44,7 +44,6 @@ public class VaultController {
     private String displayTimezone;
     @Value("${app.session-timeout-seconds}")
     private int sessionTimeoutSeconds;
-    // ADDED: Inject new properties
     @Value("${app.session-warning-seconds}")
     private int sessionWarningSeconds;
     @Value("${app.auto-refresh-seconds}")
@@ -61,9 +60,7 @@ public class VaultController {
     }
 
     private boolean isUserAuthenticated(HttpSession session) {
-        if (credentialsAreHardcoded()) {
-            return true;
-        }
+        if (credentialsAreHardcoded()) { return true; }
         return session.getAttribute("user_username") != null;
     }
 
@@ -80,9 +77,7 @@ public class VaultController {
                     sid = zelloService.authenticate(username, password);
                 }
             }
-            if (sid != null) {
-                session.setAttribute("zelloSid", sid);
-            }
+            if (sid != null) { session.setAttribute("zelloSid", sid); }
         }
         return sid;
     }
@@ -106,12 +101,8 @@ public class VaultController {
     }
 
     @GetMapping("/logout")
-    public String logout(HttpSession session) {
-        session.invalidate();
-        return "redirect:/login";
-    }
+    public String logout(HttpSession session) { session.invalidate(); return "redirect:/login"; }
 
-    // This helper method adds session timing info to the model
     private void addAppConfigToModel(Model model) {
         model.addAttribute("session_timeout_seconds", sessionTimeoutSeconds);
         model.addAttribute("session_warning_seconds", sessionWarningSeconds);
@@ -136,7 +127,7 @@ public class VaultController {
         Map<String, String> userMap = zelloService.getUserDisplayNameMap(sid);
 
         processMessagesAndAddToModel(model, history, userMap);
-        addAppConfigToModel(model); // ADDED
+        addAppConfigToModel(model);
         model.addAttribute("page_num", currentPage);
         model.addAttribute("total_pages", (history != null && history.getTotal() > 0) ? (int) Math.ceil((double) history.getTotal() / messagesPerPage) : 0);
         model.addAttribute("is_day_view", false);
@@ -162,7 +153,7 @@ public class VaultController {
         Map<String, String> userMap = zelloService.getUserDisplayNameMap(sid);
 
         processMessagesAndAddToModel(model, history, userMap);
-        addAppConfigToModel(model); // ADDED
+        addAppConfigToModel(model);
         model.addAttribute("is_day_view", true);
         model.addAttribute("viewing_date", requestedDate);
         addCalendarDataToModel(model, year, month);
@@ -181,7 +172,6 @@ public class VaultController {
                 if (mediaInfo == null) { log.warn("Null media info for key: {}. Retrying...", mediaKey); Thread.sleep(2000); continue; }
                 String status = mediaInfo.getStatus();
                 if ("OK".equals(status)) {
-                    log.info("Media ready. Streaming from URL: {}", mediaInfo.getUrl());
                     InputStreamResource audioResource = zelloService.getMediaResource(mediaInfo.getUrl(), sid);
                     return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(audioResource);
                 } else if ("Waiting".equals(status) || "Working".equals(status)) {
@@ -192,41 +182,32 @@ public class VaultController {
         } catch (Exception e) { log.error("Generic error fetching media for key {}:", mediaKey, e); return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); }
     }
 
-    // --- NEW API Endpoints for JavaScript ---
-
     @GetMapping("/api/ping")
-    public ResponseEntity<Void> pingSession() {
-        // The act of making an authenticated request resets the session timer.
-        return ResponseEntity.ok().build();
-    }
+    public ResponseEntity<Void> pingSession() { return ResponseEntity.ok().build(); }
 
     @GetMapping("/api/messages/latest")
     @ResponseBody
-    public List<ProcessedMessage> getLatestMessages(@RequestParam("since") long lastTimestamp, HttpSession session) {
-        if (!isUserAuthenticated(session)) { return Collections.emptyList(); }
+    public ResponseEntity<List<ProcessedMessage>> getLatestMessages(@RequestParam("since") long lastTimestamp, HttpSession session) {
+        // FIX: Check authentication and return 401 if not authenticated
+        if (!isUserAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         String sid = getSid(session);
-        if (sid == null) { return Collections.emptyList(); }
+        if (sid == null) { return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build(); }
 
-        long startTs = lastTimestamp + 1; // Get messages *after* the last one we have
-
+        long startTs = lastTimestamp + 1;
         HistoryResponse history = zelloService.getMessages(sid, targetChannel, 0, 100, startTs, null);
         if (history == null || history.getMessages() == null || history.getMessages().isEmpty()) {
-            return Collections.emptyList();
+            return ResponseEntity.ok(Collections.emptyList());
         }
 
         Map<String, String> userMap = zelloService.getUserDisplayNameMap(sid);
-
         ZoneId displayZoneId = ZoneId.of(displayTimezone);
-        return history.getMessages().stream()
-                .map(msg -> new ProcessedMessage(
-                        userMap.getOrDefault(msg.getSender(), msg.getSender()),
-                        Instant.ofEpochSecond(msg.getTimestamp()).atZone(displayZoneId)
-                                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
-                        msg.getMediaKey(),
-                        msg.getTranscription(),
-                        msg.getTimestamp() // Pass raw timestamp to JS
-                ))
+        List<ProcessedMessage> processed = history.getMessages().stream()
+                .map(msg -> new ProcessedMessage(userMap.getOrDefault(msg.getSender(), msg.getSender()), Instant.ofEpochSecond(msg.getTimestamp()).atZone(displayZoneId).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")), msg.getMediaKey(), msg.getTranscription(), msg.getTimestamp()))
                 .collect(Collectors.toList());
+
+        return ResponseEntity.ok(processed);
     }
 
     private void processMessagesAndAddToModel(Model model, HistoryResponse history, Map<String, String> userMap) {
@@ -234,18 +215,10 @@ public class VaultController {
         List<ProcessedMessage> processedMessages = new ArrayList<>();
         if (history != null && history.getMessages() != null) {
             processedMessages = history.getMessages().stream()
-                    .map(msg -> new ProcessedMessage(
-                            userMap.getOrDefault(msg.getSender(), msg.getSender()),
-                            Instant.ofEpochSecond(msg.getTimestamp()).atZone(displayZoneId)
-                                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
-                            msg.getMediaKey(),
-                            msg.getTranscription(),
-                            msg.getTimestamp()
-                    ))
+                    .map(msg -> new ProcessedMessage(userMap.getOrDefault(msg.getSender(), msg.getSender()), Instant.ofEpochSecond(msg.getTimestamp()).atZone(displayZoneId).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")), msg.getMediaKey(), msg.getTranscription(), msg.getTimestamp()))
                     .collect(Collectors.toList());
         }
-        model.addAttribute("messages", processedMessages);
-        model.addAttribute("channel", targetChannel);
+        model.addAttribute("messages", processedMessages); model.addAttribute("channel", targetChannel);
     }
 
     private void addCalendarDataToModel(Model model, int year, int month) {

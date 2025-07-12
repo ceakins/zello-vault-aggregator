@@ -33,8 +33,6 @@
         .no-day { background-color: #f9f9f9; }
         .transcription-text { font-style: italic; color: #555; font-size: 0.95em; margin-top: 8px; padding-left: 10px; border-left: 3px solid #e0e0e0; }
         .btn-view-all { display: inline-block; margin-bottom: 20px; padding: 8px 15px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 5px; font-size: 0.9em; }
-
-        /* ADDED: Styles for session timeout modal */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal-box { background: white; padding: 30px; border-radius: 8px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .modal-box h3 { margin-top: 0; }
@@ -44,7 +42,6 @@
         .btn-logout { background-color: #dc3545; color: white; border-color: #dc3545;}
     </style>
 </head>
-<!-- ADDED: Data attributes to hold timing config for JavaScript -->
 <body th:data-session-timeout="${session_timeout_seconds}"
       th:data-session-warning="${session_warning_seconds}"
       th:data-auto-refresh="${auto_refresh_seconds}">
@@ -61,13 +58,11 @@
             <audio id="main-audio-player" class="audio-player" controls></audio>
             <ul id="message-list-ul" class="message-list">
                 <th:block th:if="${!messages.isEmpty()}">
-                    <li th:each="message : ${messages}" th:if="${message.mediaKey != null}" class="message-item"
-                        th:data-timestamp-raw="${message.rawTimestamp}"> <!-- ADDED: Raw timestamp for JS -->
+                    <li th:each="message : ${messages}" th:if="${message.mediaKey != null}" class="message-item" th:data-timestamp-raw="${message.rawTimestamp}">
                         <div class="message-details">
                             <span class="sender" th:text="${message.displayName}"></span>
                             <span class="timestamp" th:text="${message.time24h}"></span>
-                            <p th:if="${message.transcription != null and !message.transcription.isEmpty()}"
-                               class="transcription-text" th:text='|"${message.transcription}"|'></p>
+                            <p th:if="${message.transcription != null and !message.transcription.isEmpty()}" class="transcription-text" th:text='|"${message.transcription}"|'></p>
                         </div>
                         <button class="play-button" th:attr="data-audio-src=@{/play_audio/{key}(key=${message.mediaKey})}">Play</button>
                     </li>
@@ -109,7 +104,6 @@
     </div>
 </div>
 
-<!-- ADDED: Hidden modal dialog for session timeout -->
 <div id="session-modal" class="modal-overlay">
     <div class="modal-box">
         <h3>Session Expiring Soon</h3>
@@ -121,7 +115,6 @@
     </div>
 </div>
 
-<!-- ADDED: HTML Template for creating new messages with JavaScript -->
 <template id="message-item-template">
     <li class="message-item" data-timestamp-raw="">
         <div class="message-details">
@@ -138,7 +131,6 @@
         const audioPlayer = document.getElementById('main-audio-player');
         const messageList = document.getElementById('message-list-ul');
 
-        // Make "Play" buttons work for existing and new messages
         function addPlayButtonListener(button) {
             button.addEventListener('click', function() {
                 const audioSrc = this.dataset.audioSrc;
@@ -149,30 +141,46 @@
 
         document.querySelectorAll('.play-button').forEach(addPlayButtonListener);
 
-        // --- Session Timeout Warner ---
+        // --- Session Timeout Warner (Rewritten Logic) ---
         const bodyData = document.body.dataset;
         const sessionTimeout = parseInt(bodyData.sessionTimeout, 10);
         const sessionWarning = parseInt(bodyData.sessionWarning, 10);
 
         if (sessionTimeout && sessionWarning) {
-            const warningTimeout = (sessionTimeout - sessionWarning) * 1000;
             let warningTimer;
+            let logoutTimer; // Timer for the final logout
 
             const sessionModal = document.getElementById('session-modal');
             const extendBtn = document.getElementById('extend-session-btn');
             const logoutBtn = document.getElementById('logout-btn');
 
-            function startWarningTimer() {
+            function startTimers() {
+                stopTimers(); // Clear any existing timers
+
+                // Time until the warning appears
+                const warningDelay = (sessionTimeout - sessionWarning) * 1000;
+
+                if (warningDelay > 0) {
+                    warningTimer = setTimeout(() => {
+                        sessionModal.style.display = 'flex';
+                        // When warning appears, start the final countdown to logout
+                        logoutTimer = setTimeout(() => {
+                            window.location.href = '/logout';
+                        }, sessionWarning * 1000);
+                    }, warningDelay);
+                }
+            }
+
+            function stopTimers() {
                 clearTimeout(warningTimer);
-                warningTimer = setTimeout(() => {
-                    sessionModal.style.display = 'flex';
-                }, warningTimeout > 0 ? warningTimeout : 0);
+                clearTimeout(logoutTimer);
             }
 
             extendBtn.addEventListener('click', () => {
                 fetch('/api/ping').then(() => {
                     sessionModal.style.display = 'none';
-                    startWarningTimer(); // Restart the timer
+                    stopTimers(); // Stop the logout timer
+                    startTimers(); // Restart the full cycle
                 });
             });
 
@@ -180,12 +188,12 @@
                 window.location.href = '/logout';
             });
 
-            startWarningTimer();
+            startTimers(); // Start the timers when the page loads
         }
 
-        // --- Auto-Refresh for New Messages ---
+        // --- Auto-Refresh for New Messages (Rewritten Logic) ---
         const autoRefreshInterval = parseInt(bodyData.autoRefresh, 10) * 1000;
-        const isDayView = document.querySelector("h2[th\\:if*='is_day_view']") !== null;
+        const isDayView = document.body.querySelector("h2[th\\:if*='is_day_view']") !== null;
 
         if (autoRefreshInterval > 0 && !isDayView) {
             setInterval(checkForNewMessages, autoRefreshInterval);
@@ -195,40 +203,44 @@
             const template = document.getElementById('message-item-template');
             const clone = template.content.cloneNode(true);
             const listItem = clone.querySelector('.message-item');
-
             listItem.dataset.timestampRaw = message.rawTimestamp;
             listItem.querySelector('.sender').textContent = message.displayName;
             listItem.querySelector('.timestamp').textContent = message.time24h;
-
             const playButton = listItem.querySelector('.play-button');
             playButton.dataset.audioSrc = `/play_audio/${message.mediaKey}`;
             addPlayButtonListener(playButton);
-
             if (message.transcription) {
                 const p = listItem.querySelector('.transcription-text');
                 p.textContent = `"${message.transcription}"`;
                 p.style.display = 'block';
             }
-
             return listItem;
         }
 
         function checkForNewMessages() {
             const firstMessage = messageList.querySelector('.message-item');
-            if (!firstMessage) return; // Don't refresh if there are no messages
+            if (!firstMessage) return;
 
             const latestTimestamp = firstMessage.dataset.timestampRaw;
 
             fetch(`/api/messages/latest?since=${latestTimestamp}`)
-                .then(response => response.json())
+                .then(response => {
+                    // FIX: Check for 401 Unauthorized response
+                    if (response.status === 401) {
+                        console.error('Session expired. Redirecting to login.');
+                        window.location.href = '/login';
+                        return; // Stop processing
+                    }
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(newMessages => {
                     if (newMessages && newMessages.length > 0) {
-                        // Remove the "No messages found" item if it exists
                         const noMessagesItem = document.getElementById('no-messages-item');
-                        if (noMessagesItem) {
-                            noMessagesItem.remove();
-                        }
-                        // Prepend new messages, newest first
+                        if (noMessagesItem) { noMessagesItem.remove(); }
+
                         newMessages.reverse().forEach(message => {
                             const messageElement = createMessageElement(message);
                             messageList.prepend(messageElement);
