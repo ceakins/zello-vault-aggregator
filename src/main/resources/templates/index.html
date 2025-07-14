@@ -6,7 +6,7 @@
     <title>Zello Message Vault Aggregator</title>
     <style>
         body { font-family: sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-        .main-container { display: flex; gap: 30px; align-items: flex-start; }
+        .main-container { display: flex; gap: 100px; align-items: flex-start; }
         .content { flex: 3; }
         .sidebar { flex: 1; }
         .container { width: 100%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -42,9 +42,11 @@
         .btn-logout { background-color: #dc3545; color: white; border-color: #dc3545;}
     </style>
 </head>
+<!-- FIX #1: Add a data attribute to reliably store the view state -->
 <body th:data-session-timeout="${session_timeout_seconds}"
       th:data-session-warning="${session_warning_seconds}"
-      th:data-auto-refresh="${auto_refresh_seconds}">
+      th:data-auto-refresh="${auto_refresh_seconds}"
+      th:data-is-day-view="${is_day_view}">
 
 <div class="main-container">
 
@@ -83,7 +85,7 @@
         </div>
     </div>
 
-    <div class="sidebar"> <!-- Calendar sidebar is unchanged -->
+    <div class="sidebar">
         <div class="container">
             <div class="calendar-header">
                 <a th:href="@{/calendar/{year}/{month}(year=${prev_month_date.year}, month=${prev_month_date.monthValue})}">«</a>
@@ -141,59 +143,40 @@
 
         document.querySelectorAll('.play-button').forEach(addPlayButtonListener);
 
-        // --- Session Timeout Warner (Rewritten Logic) ---
         const bodyData = document.body.dataset;
         const sessionTimeout = parseInt(bodyData.sessionTimeout, 10);
         const sessionWarning = parseInt(bodyData.sessionWarning, 10);
 
         if (sessionTimeout && sessionWarning) {
-            let warningTimer;
-            let logoutTimer; // Timer for the final logout
-
+            let warningTimer, logoutTimer;
             const sessionModal = document.getElementById('session-modal');
             const extendBtn = document.getElementById('extend-session-btn');
             const logoutBtn = document.getElementById('logout-btn');
 
             function startTimers() {
-                stopTimers(); // Clear any existing timers
-
-                // Time until the warning appears
+                stopTimers();
                 const warningDelay = (sessionTimeout - sessionWarning) * 1000;
-
                 if (warningDelay > 0) {
                     warningTimer = setTimeout(() => {
                         sessionModal.style.display = 'flex';
-                        // When warning appears, start the final countdown to logout
-                        logoutTimer = setTimeout(() => {
-                            window.location.href = '/logout';
-                        }, sessionWarning * 1000);
+                        logoutTimer = setTimeout(() => { window.location.href = '/logout'; }, sessionWarning * 1000);
                     }, warningDelay);
                 }
             }
-
-            function stopTimers() {
-                clearTimeout(warningTimer);
-                clearTimeout(logoutTimer);
-            }
-
+            function stopTimers() { clearTimeout(warningTimer); clearTimeout(logoutTimer); }
             extendBtn.addEventListener('click', () => {
                 fetch('/api/ping').then(() => {
                     sessionModal.style.display = 'none';
-                    stopTimers(); // Stop the logout timer
-                    startTimers(); // Restart the full cycle
+                    stopTimers(); startTimers();
                 });
             });
-
-            logoutBtn.addEventListener('click', () => {
-                window.location.href = '/logout';
-            });
-
-            startTimers(); // Start the timers when the page loads
+            logoutBtn.addEventListener('click', () => { window.location.href = '/logout'; });
+            startTimers();
         }
 
-        // --- Auto-Refresh for New Messages (Rewritten Logic) ---
         const autoRefreshInterval = parseInt(bodyData.autoRefresh, 10) * 1000;
-        const isDayView = document.body.querySelector("h2[th\\:if*='is_day_view']") !== null;
+        // FIX #2: Read the view state from the new data attribute
+        const isDayView = bodyData.isDayView === 'true';
 
         if (autoRefreshInterval > 0 && !isDayView) {
             setInterval(checkForNewMessages, autoRefreshInterval);
@@ -220,27 +203,22 @@
         function checkForNewMessages() {
             const firstMessage = messageList.querySelector('.message-item');
             if (!firstMessage) return;
-
             const latestTimestamp = firstMessage.dataset.timestampRaw;
 
             fetch(`/api/messages/latest?since=${latestTimestamp}`)
                 .then(response => {
-                    // FIX: Check for 401 Unauthorized response
                     if (response.status === 401) {
                         console.error('Session expired. Redirecting to login.');
                         window.location.href = '/login';
-                        return; // Stop processing
+                        return null;
                     }
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
+                    if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
                     return response.json();
                 })
                 .then(newMessages => {
                     if (newMessages && newMessages.length > 0) {
                         const noMessagesItem = document.getElementById('no-messages-item');
                         if (noMessagesItem) { noMessagesItem.remove(); }
-
                         newMessages.reverse().forEach(message => {
                             const messageElement = createMessageElement(message);
                             messageList.prepend(messageElement);
