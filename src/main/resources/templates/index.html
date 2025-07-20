@@ -47,7 +47,6 @@
       th:data-auto-refresh="${auto_refresh_seconds}">
 
 <div class="main-container">
-
     <div class="content">
         <div class="container">
             <h1>Zello Message Vault Aggregator</h1>
@@ -83,7 +82,7 @@
         </div>
     </div>
 
-    <div class="sidebar"> <!-- Calendar sidebar -->
+    <div class="sidebar">
         <div class="container">
             <div class="calendar-header">
                 <a th:href="@{/calendar/{year}/{month}(year=${prev_month_date.year}, month=${prev_month_date.monthValue})}">«</a>
@@ -91,10 +90,14 @@
                 <a th:href="@{/calendar/{year}/{month}(year=${next_month_date.year}, month=${next_month_date.monthValue})}">»</a>
             </div>
             <table class="calendar-table">
-                <thead><tr><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th><th>Su</th></tr></thead>
+                <thead>
+                <!-- FIX: The table header now correctly starts with Sunday -->
+                <tr><th>Su</th><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th></tr>
+                </thead>
                 <tbody>
                 <tr th:each="week : ${calendar_weeks}">
-                    <td th:each="day : ${week}" th:classappend="${day == 0 ? 'no-day' : ''} + ${(today.dayOfMonth == day and today.monthValue == cal_date.monthValue and today.year == cal_date.year) ? 'today' : ''}">
+                    <td th:each="day : ${week}"
+                        th:classappend="${day == 0 ? 'no-day' : ''} + ${(today.dayOfMonth == day and today.monthValue == cal_date.monthValue and today.year == cal_date.year) ? 'today' : ''}">
                         <a th:if="${day > 0}" th:href="@{/date/{year}/{month}/{day}(year=${cal_date.year}, month=${cal_date.monthValue}, day=${day})}" class="day-link" th:text="${day}"></a>
                     </td>
                 </tr>
@@ -104,7 +107,7 @@
     </div>
 </div>
 
-<div id="session-modal" class="modal-overlay"> <!-- Modal dialog is unchanged -->
+<div id="session-modal" class="modal-overlay">
     <div class="modal-box">
         <h3>Session Expiring Soon</h3>
         <p>Your session will time out due to inactivity. Do you want to stay logged in?</p>
@@ -115,26 +118,20 @@
     </div>
 </div>
 
-<template id="message-item-template"> <!-- Template is unchanged -->
+<template id="message-item-template">
     <li class="message-item" data-timestamp-raw="">
         <div class="message-details">
             <span class="sender"></span>
             <span class="timestamp"></span>
             <p class="transcription-text" style="display: none;"></p>
         </div>
-        <button class="play-button" data-audio-src="">Play</button>
+        <button class="play-button" data-audio-src=""></button>
     </li>
 </template>
 
-<!-- SCRIPT SECTION MODIFIED -->
 <script th:inline="javascript">
-    /*
-     * FIX: Create a JavaScript variable that holds the correct, context-aware base path.
-     * Thymeleaf's @{/} will resolve to "/" for a JAR and "/zello-vault-aggregator/" for a WAR.
-     */
     const contextPath = /*[[@{/}]]*/ '/';
 </script>
-
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const audioPlayer = document.getElementById('main-audio-player');
@@ -167,7 +164,6 @@
                     warningTimer = setTimeout(() => {
                         sessionModal.style.display = 'flex';
                         logoutTimer = setTimeout(() => {
-                            // FIX: Use context-aware path
                             window.location.href = contextPath + 'logout';
                         }, sessionWarning * 1000);
                     }, warningDelay);
@@ -177,7 +173,6 @@
             function stopTimers() { clearTimeout(warningTimer); clearTimeout(logoutTimer); }
 
             extendBtn.addEventListener('click', () => {
-                // The API path is already relative, so it's safe
                 fetch(contextPath + 'api/ping').then(() => {
                     sessionModal.style.display = 'none';
                     stopTimers();
@@ -186,7 +181,6 @@
             });
 
             logoutBtn.addEventListener('click', () => {
-                // FIX: Use context-aware path
                 window.location.href = contextPath + 'logout';
             });
 
@@ -208,7 +202,6 @@
             listItem.querySelector('.sender').textContent = message.displayName;
             listItem.querySelector('.timestamp').textContent = message.time24h;
             const playButton = listItem.querySelector('.play-button');
-            // The URL here is already correctly formed by the server, so contextPath is not needed
             playButton.dataset.audioSrc = contextPath + `play_audio/${message.mediaKey}`;
             addPlayButtonListener(playButton);
             if (message.transcription) {
@@ -225,12 +218,10 @@
 
             const latestTimestamp = firstMessage.dataset.timestampRaw;
 
-            // The API path is already relative, so it's safe
             fetch(contextPath + `api/messages/latest?since=${latestTimestamp}`)
                 .then(response => {
                     if (response.status === 401) {
                         console.error('Session expired. Redirecting to login.');
-                        // FIX: Use context-aware path
                         window.location.href = contextPath + 'login';
                         return;
                     }
