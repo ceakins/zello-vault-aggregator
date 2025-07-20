@@ -42,11 +42,9 @@
         .btn-logout { background-color: #dc3545; color: white; border-color: #dc3545;}
     </style>
 </head>
-<!-- FIX #1: Add a data attribute to reliably store the view state -->
 <body th:data-session-timeout="${session_timeout_seconds}"
       th:data-session-warning="${session_warning_seconds}"
-      th:data-auto-refresh="${auto_refresh_seconds}"
-      th:data-is-day-view="${is_day_view}">
+      th:data-auto-refresh="${auto_refresh_seconds}">
 
 <div class="main-container">
 
@@ -85,7 +83,7 @@
         </div>
     </div>
 
-    <div class="sidebar">
+    <div class="sidebar"> <!-- Calendar sidebar -->
         <div class="container">
             <div class="calendar-header">
                 <a th:href="@{/calendar/{year}/{month}(year=${prev_month_date.year}, month=${prev_month_date.monthValue})}">«</a>
@@ -106,7 +104,7 @@
     </div>
 </div>
 
-<div id="session-modal" class="modal-overlay">
+<div id="session-modal" class="modal-overlay"> <!-- Modal dialog is unchanged -->
     <div class="modal-box">
         <h3>Session Expiring Soon</h3>
         <p>Your session will time out due to inactivity. Do you want to stay logged in?</p>
@@ -117,7 +115,7 @@
     </div>
 </div>
 
-<template id="message-item-template">
+<template id="message-item-template"> <!-- Template is unchanged -->
     <li class="message-item" data-timestamp-raw="">
         <div class="message-details">
             <span class="sender"></span>
@@ -127,6 +125,15 @@
         <button class="play-button" data-audio-src="">Play</button>
     </li>
 </template>
+
+<!-- SCRIPT SECTION MODIFIED -->
+<script th:inline="javascript">
+    /*
+     * FIX: Create a JavaScript variable that holds the correct, context-aware base path.
+     * Thymeleaf's @{/} will resolve to "/" for a JAR and "/zello-vault-aggregator/" for a WAR.
+     */
+    const contextPath = /*[[@{/}]]*/ '/';
+</script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -148,7 +155,7 @@
         const sessionWarning = parseInt(bodyData.sessionWarning, 10);
 
         if (sessionTimeout && sessionWarning) {
-            let warningTimer, logoutTimer;
+            let warningTimer; let logoutTimer;
             const sessionModal = document.getElementById('session-modal');
             const extendBtn = document.getElementById('extend-session-btn');
             const logoutBtn = document.getElementById('logout-btn');
@@ -159,24 +166,35 @@
                 if (warningDelay > 0) {
                     warningTimer = setTimeout(() => {
                         sessionModal.style.display = 'flex';
-                        logoutTimer = setTimeout(() => { window.location.href = '/logout'; }, sessionWarning * 1000);
+                        logoutTimer = setTimeout(() => {
+                            // FIX: Use context-aware path
+                            window.location.href = contextPath + 'logout';
+                        }, sessionWarning * 1000);
                     }, warningDelay);
                 }
             }
+
             function stopTimers() { clearTimeout(warningTimer); clearTimeout(logoutTimer); }
+
             extendBtn.addEventListener('click', () => {
-                fetch('/api/ping').then(() => {
+                // The API path is already relative, so it's safe
+                fetch(contextPath + 'api/ping').then(() => {
                     sessionModal.style.display = 'none';
-                    stopTimers(); startTimers();
+                    stopTimers();
+                    startTimers();
                 });
             });
-            logoutBtn.addEventListener('click', () => { window.location.href = '/logout'; });
+
+            logoutBtn.addEventListener('click', () => {
+                // FIX: Use context-aware path
+                window.location.href = contextPath + 'logout';
+            });
+
             startTimers();
         }
 
         const autoRefreshInterval = parseInt(bodyData.autoRefresh, 10) * 1000;
-        // FIX #2: Read the view state from the new data attribute
-        const isDayView = bodyData.isDayView === 'true';
+        const isDayView = document.body.querySelector("h2[th\\:if*='is_day_view']") !== null;
 
         if (autoRefreshInterval > 0 && !isDayView) {
             setInterval(checkForNewMessages, autoRefreshInterval);
@@ -190,7 +208,8 @@
             listItem.querySelector('.sender').textContent = message.displayName;
             listItem.querySelector('.timestamp').textContent = message.time24h;
             const playButton = listItem.querySelector('.play-button');
-            playButton.dataset.audioSrc = `/play_audio/${message.mediaKey}`;
+            // The URL here is already correctly formed by the server, so contextPath is not needed
+            playButton.dataset.audioSrc = contextPath + `play_audio/${message.mediaKey}`;
             addPlayButtonListener(playButton);
             if (message.transcription) {
                 const p = listItem.querySelector('.transcription-text');
@@ -203,14 +222,17 @@
         function checkForNewMessages() {
             const firstMessage = messageList.querySelector('.message-item');
             if (!firstMessage) return;
+
             const latestTimestamp = firstMessage.dataset.timestampRaw;
 
-            fetch(`/api/messages/latest?since=${latestTimestamp}`)
+            // The API path is already relative, so it's safe
+            fetch(contextPath + `api/messages/latest?since=${latestTimestamp}`)
                 .then(response => {
                     if (response.status === 401) {
                         console.error('Session expired. Redirecting to login.');
-                        window.location.href = '/login';
-                        return null;
+                        // FIX: Use context-aware path
+                        window.location.href = contextPath + 'login';
+                        return;
                     }
                     if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
                     return response.json();
