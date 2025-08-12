@@ -6,8 +6,8 @@
     <title>Zello Message Vault Aggregator</title>
     <style>
         body { font-family: sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-        .main-container { display: flex; gap: 100px; align-items: flex-start; }
-        .content { flex: 3; }
+        .main-container { display: flex; gap: 30px; align-items: flex-start; }
+        .content { flex: 3; margin-right: 30px; }
         .sidebar { flex: 1; }
         .container { width: 100%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h1, h2 { color: #333; }
@@ -28,8 +28,11 @@
         .calendar-table th { padding: 5px; color: #666; font-size: 0.9em; }
         .calendar-table td { padding: 2px; border: 1px solid #eee; }
         .day-link { display: block; padding: 8px 5px; text-decoration: none; color: #0056b3; }
+        .day-link:hover { background-color: #f0f8ff; }
         .today { background-color: #fffbe6; }
-        .today .day-link { font-weight: bold; }
+        .today .day-link { font-weight: bold; color: #c09853; }
+        .selected-day { background-color: #007bff; }
+        .selected-day .day-link { font-weight: bold; color: white; }
         .no-day { background-color: #f9f9f9; }
         .transcription-text { font-style: italic; color: #555; font-size: 0.95em; margin-top: 8px; padding-left: 10px; border-left: 3px solid #e0e0e0; }
         .btn-view-all { display: inline-block; margin-bottom: 20px; padding: 8px 15px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 5px; font-size: 0.9em; }
@@ -40,6 +43,7 @@
         .modal-buttons button { padding: 10px 20px; margin: 0 10px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; }
         .btn-extend { background-color: #28a745; color: white; border-color: #28a745;}
         .btn-logout { background-color: #dc3545; color: white; border-color: #dc3545;}
+        .refresh-status { font-size: 0.8em; color: #888; text-align: right; margin-top: -15px; margin-bottom: 15px; height: 1em; }
     </style>
 </head>
 <body th:data-session-timeout="${session_timeout_seconds}"
@@ -52,6 +56,8 @@
             <h1>Zello Message Vault Aggregator</h1>
             <h2 th:if="${is_day_view}" th:text="'Messages for ' + ${#temporals.format(viewing_date, 'yyyy-MM-dd')}"></h2>
             <h2 th:unless="${is_day_view}" th:text="'Channel: ' + ${channel}"></h2>
+            <p id="refresh-timestamp" class="refresh-status"
+               th:data-viewing-date="${is_day_view ? #temporals.format(viewing_date, 'yyyy-MM-dd') : ''}"></p>
             <div th:if="${is_day_view}"><a th:href="@{/}" class="btn-view-all">« Return to Full History</a></div>
 
             <audio id="main-audio-player" class="audio-player" controls></audio>
@@ -82,6 +88,7 @@
         </div>
     </div>
 
+    <!-- FIX: Restored the sidebar and all its content -->
     <div class="sidebar">
         <div class="container">
             <div class="calendar-header">
@@ -90,14 +97,14 @@
                 <a th:href="@{/calendar/{year}/{month}(year=${next_month_date.year}, month=${next_month_date.monthValue})}">»</a>
             </div>
             <table class="calendar-table">
-                <thead>
-                <!-- FIX: The table header now correctly starts with Sunday -->
-                <tr><th>Su</th><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th></tr>
-                </thead>
+                <thead><tr><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th><th>Su</th></tr></thead>
                 <tbody>
                 <tr th:each="week : ${calendar_weeks}">
                     <td th:each="day : ${week}"
-                        th:classappend="${day == 0 ? 'no-day' : ''} + ${(today.dayOfMonth == day and today.monthValue == cal_date.monthValue and today.year == cal_date.year) ? 'today' : ''}">
+                        th:with="isSelected=${is_day_view and viewing_date.dayOfMonth == day and viewing_date.monthValue == cal_date.monthValue and viewing_date.year == cal_date.year},
+                                     isToday=${today.dayOfMonth == day and today.monthValue == cal_date.monthValue and today.year == cal_date.year},
+                                     dayClass=${isSelected ? 'selected-day' : (isToday ? 'today' : '')}"
+                        th:classappend="${day == 0 ? 'no-day' : dayClass}">
                         <a th:if="${day > 0}" th:href="@{/date/{year}/{month}/{day}(year=${cal_date.year}, month=${cal_date.monthValue}, day=${day})}" class="day-link" th:text="${day}"></a>
                     </td>
                 </tr>
@@ -107,6 +114,7 @@
     </div>
 </div>
 
+<!-- FIX: Restored the session modal and all its content -->
 <div id="session-modal" class="modal-overlay">
     <div class="modal-box">
         <h3>Session Expiring Soon</h3>
@@ -118,6 +126,7 @@
     </div>
 </div>
 
+<!-- FIX: Restored the message item template and all its content -->
 <template id="message-item-template">
     <li class="message-item" data-timestamp-raw="">
         <div class="message-details">
@@ -130,67 +139,67 @@
 </template>
 
 <script th:inline="javascript">
-    const contextPath = /*[[@{/}]]*/ '/';
-</script>
-<script>
+    /*<![CDATA[*/
+    const isDayView = /*[[${is_day_view}]]*/ false;
+    const isTodayView = /*[[${isTodayView}]]*/ false;
+    /*]]>*/
+
     document.addEventListener('DOMContentLoaded', function() {
         const audioPlayer = document.getElementById('main-audio-player');
         const messageList = document.getElementById('message-list-ul');
-
         function addPlayButtonListener(button) {
             button.addEventListener('click', function() {
-                const audioSrc = this.dataset.audioSrc;
-                audioPlayer.src = audioSrc;
-                audioPlayer.play();
+                const audioSrc = this.dataset.audioSrc; audioPlayer.src = audioSrc; audioPlayer.play();
             });
         }
-
         document.querySelectorAll('.play-button').forEach(addPlayButtonListener);
 
         const bodyData = document.body.dataset;
         const sessionTimeout = parseInt(bodyData.sessionTimeout, 10);
         const sessionWarning = parseInt(bodyData.sessionWarning, 10);
-
         if (sessionTimeout && sessionWarning) {
-            let warningTimer; let logoutTimer;
+            let warningTimer, logoutTimer;
             const sessionModal = document.getElementById('session-modal');
             const extendBtn = document.getElementById('extend-session-btn');
             const logoutBtn = document.getElementById('logout-btn');
-
             function startTimers() {
                 stopTimers();
                 const warningDelay = (sessionTimeout - sessionWarning) * 1000;
                 if (warningDelay > 0) {
                     warningTimer = setTimeout(() => {
                         sessionModal.style.display = 'flex';
-                        logoutTimer = setTimeout(() => {
-                            window.location.href = contextPath + 'logout';
-                        }, sessionWarning * 1000);
+                        logoutTimer = setTimeout(() => { window.location.href = '/logout'; }, sessionWarning * 1000);
                     }, warningDelay);
                 }
             }
-
             function stopTimers() { clearTimeout(warningTimer); clearTimeout(logoutTimer); }
-
             extendBtn.addEventListener('click', () => {
-                fetch(contextPath + 'api/ping').then(() => {
-                    sessionModal.style.display = 'none';
-                    stopTimers();
-                    startTimers();
-                });
+                fetch('/api/ping').then(() => { sessionModal.style.display = 'none'; stopTimers(); startTimers(); });
             });
-
-            logoutBtn.addEventListener('click', () => {
-                window.location.href = contextPath + 'logout';
-            });
-
+            logoutBtn.addEventListener('click', () => { window.location.href = '/logout'; });
             startTimers();
         }
 
         const autoRefreshInterval = parseInt(bodyData.autoRefresh, 10) * 1000;
-        const isDayView = document.body.querySelector("h2[th\\:if*='is_day_view']") !== null;
+        const refreshTimestampElement = document.getElementById('refresh-timestamp');
+        const shouldAutoRefresh = autoRefreshInterval > 0 && (!isDayView || isTodayView);
 
-        if (autoRefreshInterval > 0 && !isDayView) {
+        function updateRefreshStatusText() {
+            if (!refreshTimestampElement) return;
+            const storedTime = sessionStorage.getItem('lastCheckedTimestamp');
+            if (storedTime) {
+                refreshTimestampElement.textContent = `Last checked: ${storedTime}`;
+            } else if (shouldAutoRefresh) {
+                const nowString = new Date().toLocaleTimeString();
+                sessionStorage.setItem('lastCheckedTimestamp', nowString);
+                refreshTimestampElement.textContent = `Last checked: ${nowString}`;
+            } else {
+                refreshTimestampElement.textContent = 'Auto-refresh disabled for past dates.';
+            }
+        }
+        updateRefreshStatusText();
+
+        if (shouldAutoRefresh) {
             setInterval(checkForNewMessages, autoRefreshInterval);
         }
 
@@ -202,7 +211,8 @@
             listItem.querySelector('.sender').textContent = message.displayName;
             listItem.querySelector('.timestamp').textContent = message.time24h;
             const playButton = listItem.querySelector('.play-button');
-            playButton.dataset.audioSrc = contextPath + `play_audio/${message.mediaKey}`;
+            playButton.dataset.audioSrc = `/play_audio/${message.mediaKey}`;
+            playButton.textContent = 'Play';
             addPlayButtonListener(playButton);
             if (message.transcription) {
                 const p = listItem.querySelector('.transcription-text');
@@ -214,17 +224,18 @@
 
         function checkForNewMessages() {
             const firstMessage = messageList.querySelector('.message-item');
-            if (!firstMessage) return;
+            const latestTimestamp = firstMessage ? firstMessage.dataset.timestampRaw : '0';
+            let apiUrl = `/api/messages/latest?since=${latestTimestamp}`;
+            if (isTodayView) {
+                const viewingDate = refreshTimestampElement.dataset.viewingDate;
+                if (viewingDate) {
+                    apiUrl += `&day=${viewingDate}`;
+                }
+            }
 
-            const latestTimestamp = firstMessage.dataset.timestampRaw;
-
-            fetch(contextPath + `api/messages/latest?since=${latestTimestamp}`)
+            fetch(apiUrl)
                 .then(response => {
-                    if (response.status === 401) {
-                        console.error('Session expired. Redirecting to login.');
-                        window.location.href = contextPath + 'login';
-                        return;
-                    }
+                    if (response.status === 401) { window.location.href = '/login'; return; }
                     if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
                     return response.json();
                 })
@@ -232,13 +243,19 @@
                     if (newMessages && newMessages.length > 0) {
                         const noMessagesItem = document.getElementById('no-messages-item');
                         if (noMessagesItem) { noMessagesItem.remove(); }
+
                         newMessages.reverse().forEach(message => {
                             const messageElement = createMessageElement(message);
                             messageList.prepend(messageElement);
                         });
                     }
                 })
-                .catch(error => console.error('Error checking for new messages:', error));
+                .catch(error => console.error('Error checking for new messages:', error))
+                .finally(() => {
+                    const nowString = new Date().toLocaleTimeString();
+                    sessionStorage.setItem('lastCheckedTimestamp', nowString);
+                    updateRefreshStatusText();
+                });
         }
     });
 </script>
