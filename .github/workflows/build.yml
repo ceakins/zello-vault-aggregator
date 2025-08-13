@@ -1,0 +1,36 @@
+# .github/workflows/build.yml
+
+name: Java CI with Maven
+
+# This workflow runs on pushes or pull requests to the 'main' branch
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    # Run on the latest version of Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out your repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up JDK 21
+      # This action sets up the specified Java version and also configures Maven.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin' # A popular, high-quality OpenJDK distribution
+          cache: 'maven' # Caches Maven dependencies for faster builds
+
+      # Step 3: Build with Maven
+      # We use 'verify' instead of 'package' as it runs all phases up to and
+      # including the test and integration-test phases, which is ideal for CI.
+      # The -B flag runs Maven in non-interactive (batch) mode.
+      - name: Build and test with Maven
+        run: mvn -B verify --file pom.xml

@@ -1,0 +1,55 @@
+# .github/workflows/release.yml
+
+name: Create GitHub Release
+
+# This workflow triggers only when you push a new tag that starts with 'v'
+on:
+  push:
+    tags:
+      - 'v*' # e.g., v1.0, v2.3.4
+
+# These permissions are required for the release action to create a release
+# and upload assets to it.
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Check out the repository code at the specific tag
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up JDK 21 and Maven
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # Step 3: Build the Standalone JAR
+      # This runs the default 'mvn package' command.
+      - name: Build Standalone JAR
+        run: mvn -B clean package --file pom.xml
+
+      # Step 4: Build the Deployable WAR
+      # This activates the 'deployable-war' profile as specified in your README.
+      - name: Build Deployable WAR
+        run: mvn -B clean package -P deployable-war --file pom.xml
+
+      # Step 5: Create the Release and Upload Artifacts
+      # This action uses the tag as the release name and uploads the specified files.
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # A list of files to upload as assets to the release.
+          # These paths match the output locations from your Maven build.
+          files: |
+            target/zello-vault-aggregator.jar
+            target/zello-vault-aggregator.war
+        env:
+          # The GITHUB_TOKEN is a special secret automatically provided by GitHub
+          # that gives the workflow permission to act on behalf of the repository.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
