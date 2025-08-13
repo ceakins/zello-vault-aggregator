@@ -10,7 +10,7 @@
     </parent>
     <groupId>io.github.ceakins</groupId>
     <artifactId>zello-vault-aggregator</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.0.1</version>
     <name>Zello Message Vault Aggregator</name>
     <description>A Spring Boot application to view Zello message history.</description>
     <packaging>${packaging.type}</packaging>
