@@ -1,4 +1,4 @@
-package com.charles.eakins.zello.model;
+package io.github.ceakins.zello.model;
 
 public class ProcessedMessage {
     private final String displayName;

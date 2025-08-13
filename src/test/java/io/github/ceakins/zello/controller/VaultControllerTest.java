@@ -1,8 +1,8 @@
-package com.charles.eakins.zello.controller;
+package io.github.ceakins.zello.controller;
 
-import com.charles.eakins.zello.config.ZelloApiConfig;
-import com.charles.eakins.zello.model.HistoryResponse;
-import com.charles.eakins.zello.service.ZelloApiService;
+import io.github.ceakins.zello.config.ZelloApiConfig;
+import io.github.ceakins.zello.model.HistoryResponse;
+import io.github.ceakins.zello.service.ZelloApiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;

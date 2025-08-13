@@ -1,12 +1,11 @@
-package com.charles.eakins.zello.service;
+package io.github.ceakins.zello.service;
 
-import com.charles.eakins.zello.config.ZelloApiConfig;
-import com.charles.eakins.zello.model.*;
+import io.github.ceakins.zello.config.ZelloApiConfig;
+import io.github.ceakins.zello.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;

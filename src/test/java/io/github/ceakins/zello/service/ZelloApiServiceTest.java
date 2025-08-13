@@ -1,10 +1,10 @@
-package com.charles.eakins.zello.service;
+package io.github.ceakins.zello.service;
 
-import com.charles.eakins.zello.config.ZelloApiConfig;
-import com.charles.eakins.zello.model.LoginResponse;
-import com.charles.eakins.zello.model.TokenResponse;
-import com.charles.eakins.zello.model.UserListResponse;
-import com.charles.eakins.zello.model.ZelloUser;
+import io.github.ceakins.zello.config.ZelloApiConfig;
+import io.github.ceakins.zello.model.LoginResponse;
+import io.github.ceakins.zello.model.TokenResponse;
+import io.github.ceakins.zello.model.UserListResponse;
+import io.github.ceakins.zello.model.ZelloUser;
 // REMOVED: import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;

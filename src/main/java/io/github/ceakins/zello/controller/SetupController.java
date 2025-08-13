@@ -1,6 +1,6 @@
-package com.charles.eakins.zello.controller;
+package io.github.ceakins.zello.controller;
 
-import com.charles.eakins.zello.ZelloAggregatorApplication;
+import io.github.ceakins.zello.ZelloAggregatorApplication;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
