@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Setup - Zello Aggregator</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px 0; }
+        .setup-container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
+        h1 { text-align: center; color: #333; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .full-width { grid-column: 1 / -1; }
+        label { display: block; margin-bottom: 5px; color: #555; font-weight: bold; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .btn-save { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1.1em; margin-top: 20px; }
+        .required-note { font-size: 0.9em; color: #dc3545; text-align: center; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+<div class="setup-container">
+    <h1>Initial Application Setup</h1>
+    <p class="required-note">Fields marked with * are required.</p>
+    <form th:action="@{/setup}" method="post">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="zelloNetwork">Zello Network Name *</label>
+                <input type="text" id="zelloNetwork" name="zelloNetwork" placeholder="e.g., my-company" required>
+            </div>
+            <div class="form-group">
+                <label for="zelloApiKey">Zello API Key *</label>
+                <input type="text" id="zelloApiKey" name="zelloApiKey" required>
+            </div>
+            <div class="form-group">
+                <label for="appChannel">Target Channel</label>
+                <input type="text" id="appChannel" name="appChannel" th:value="${defaultChannel}">
+            </div>
+            <div class="form-group">
+                <label for="appTimezone">Display Timezone</label>
+                <input type="text" id="appTimezone" name="appTimezone" th:value="${defaultTimezone}">
+            </div>
+            <div class="form-group">
+                <label for="serverPort">Server Port</label>
+                <input type="number" id="serverPort" name="serverPort" th:value="${defaultPort}">
+            </div>
+            <div class="form-group">
+                <label for="appMessagesPerPage">Messages Per Page</label>
+                <input type="number" id="appMessagesPerPage" name="appMessagesPerPage" th:value="${defaultMessagesPerPage}">
+            </div>
+            <div class="form-group">
+                <label for="appSessionTimeout">Session Timeout (seconds)</label>
+                <input type="number" id="appSessionTimeout" name="appSessionTimeout" th:value="${defaultSessionTimeout}">
+            </div>
+            <div class="form-group">
+                <label for="appSessionWarning">Session Warning (seconds)</label>
+                <input type="number" id="appSessionWarning" name="appSessionWarning" th:value="${defaultSessionWarning}">
+            </div>
+            <div class="form-group full-width">
+                <label for="appAutoRefresh">Auto-Refresh Interval (seconds)</label>
+                <input type="number" id="appAutoRefresh" name="appAutoRefresh" th:value="${defaultAutoRefresh}">
+            </div>
+        </div>
+        <button type="submit" class="btn-save">Save Configuration</button>
+    </form>
+</div>
+</body>
+</html>
