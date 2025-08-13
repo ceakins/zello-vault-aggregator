@@ -1,7 +1,7 @@
-package com.charles.eakins.zello.controller;
+package io.github.ceakins.zello.controller;
 
-import com.charles.eakins.zello.ZelloAggregatorApplication;
-import com.charles.eakins.zello.config.ZelloApiConfig;
+import io.github.ceakins.zello.ZelloAggregatorApplication;
+import io.github.ceakins.zello.config.ZelloApiConfig;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

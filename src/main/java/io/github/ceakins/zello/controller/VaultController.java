@@ -1,10 +1,10 @@
-package com.charles.eakins.zello.controller;
+package io.github.ceakins.zello.controller;
 
-import com.charles.eakins.zello.config.ZelloApiConfig;
-import com.charles.eakins.zello.model.HistoryResponse;
-import com.charles.eakins.zello.model.MediaResponse;
-import com.charles.eakins.zello.model.ProcessedMessage;
-import com.charles.eakins.zello.service.ZelloApiService;
+import io.github.ceakins.zello.config.ZelloApiConfig;
+import io.github.ceakins.zello.model.HistoryResponse;
+import io.github.ceakins.zello.model.MediaResponse;
+import io.github.ceakins.zello.model.ProcessedMessage;
+import io.github.ceakins.zello.service.ZelloApiService;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +17,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;

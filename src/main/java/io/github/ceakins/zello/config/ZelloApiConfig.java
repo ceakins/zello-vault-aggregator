@@ -1,4 +1,4 @@
-package com.charles.eakins.zello.config;
+package io.github.ceakins.zello.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

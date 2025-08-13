@@ -8,7 +8,7 @@
         <version>3.3.1</version>
         <relativePath/>
     </parent>
-    <groupId>com.charles.eakins</groupId>
+    <groupId>io.github.ceakins</groupId>
     <artifactId>zello-vault-aggregator</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>Zello Message Vault Aggregator</name>

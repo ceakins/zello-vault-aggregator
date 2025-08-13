@@ -2,8 +2,8 @@
 <suite name="ZelloAggregatorSuite" verbose="1">
     <test name="AllTests">
         <classes>
-            <class name="com.charles.eakins.zello.service.ZelloApiServiceTest"/>
-            <class name="com.charles.eakins.zello.controller.VaultControllerTest"/>
+            <class name="io.github.ceakins.zello.service.ZelloApiServiceTest"/>
+            <class name="io.github.ceakins.zello.controller.VaultControllerTest"/>
         </classes>
     </test>
 </suite>

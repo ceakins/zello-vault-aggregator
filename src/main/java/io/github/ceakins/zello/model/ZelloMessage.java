@@ -1,4 +1,4 @@
-package com.charles.eakins.zello.model;
+package io.github.ceakins.zello.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
