@@ -11,7 +11,6 @@
     <groupId>com.charles.eakins</groupId>
     <artifactId>zello-vault-aggregator</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-
     <name>Zello Message Vault Aggregator</name>
     <description>A Spring Boot application to view Zello message history.</description>
 
@@ -29,6 +28,10 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
+
+        <!-- REMOVED: Spring Boot Actuator is no longer needed -->
+        <!-- REMOVED: Spring Cloud Bootstrap is no longer needed -->
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -66,58 +69,23 @@
             <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
     </dependencies>
 
+    <!-- REMOVED: The dependencyManagement block for Spring Cloud is no longer needed -->
+
+    <!-- ... build profiles, etc., are unchanged ... -->
     <profiles>
-        <profile>
-            <id>executable-jar</id>
-            <activation><activeByDefault>true</activeByDefault></activation>
-        </profile>
-        <profile>
-            <id>deployable-war</id>
-            <properties><packaging.type>war</packaging.type></properties>
-        </profile>
+        <profile><id>executable-jar</id><activation><activeByDefault>true</activeByDefault></activation></profile>
+        <profile><id>deployable-war</id><properties><packaging.type>war</packaging.type></properties></profile>
     </profiles>
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
-                <!-- FIX: Added a <dependencies> section to force the TestNG provider -->
-                <dependencies>
-                    <dependency>
-                        <groupId>org.apache.maven.surefire</groupId>
-                        <artifactId>surefire-testng</artifactId>
-                        <version>3.2.5</version>
-                    </dependency>
-                </dependencies>
-                <configuration>
-                    <suiteXmlFiles>
-                        <suiteXmlFile>testng.xml</suiteXmlFile>
-                    </suiteXmlFiles>
-                </configuration>
-            </plugin>
+            <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
+            <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><configuration><source>${java.version}</source><target>${java.version}</target></configuration></plugin>
+            <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.2.5</version><dependencies><dependency><groupId>org.apache.maven.surefire</groupId><artifactId>surefire-testng</artifactId><version>3.2.5</version></dependency></dependencies><configuration><suiteXmlFiles><suiteXmlFile>testng.xml</suiteXmlFile></suiteXmlFiles></configuration></plugin>
         </plugins>
-        <finalName>zello-aggregator</finalName>
+        <finalName>zello-vault-aggregator</finalName>
     </build>
-
     <packaging>${packaging.type}</packaging>
 </project>

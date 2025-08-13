@@ -1,0 +1,40 @@
+# =======================================
+# Zello API Configuration
+# =======================================
+# Your Zello network name (e.g., my-company, not my-company.zework.com)
+zello.api.network=your-network-name
+
+# Leave blank to enable the user login screen.
+# If filled, the application will use these credentials automatically.
+zello.api.username=
+zello.api.password=
+
+# Your Zello API key from the management console.
+zello.api.key=your-zello-api-key
+
+# =======================================
+# Application Settings
+# =======================================
+# The specific channel to fetch messages from.
+app.target-channel=Emergency Communications
+
+# The number of messages to display on each page in the main view.
+app.messages-per-page=50
+
+# The local timezone for displaying timestamps and correctly filtering by date.
+# Must be a valid TZ database name (e.g., America/New_York, Europe/London).
+app.display-timezone=America/Los_Angeles
+
+# The duration in seconds that a user's login session will remain active.
+app.session-timeout-seconds=1800
+
+# Time in seconds before timeout to show the warning dialog.
+app.session-warning-seconds=15
+
+# Interval in seconds to check for new messages.
+app.auto-refresh-seconds=60
+
+# =======================================
+# Server Configuration
+# =======================================
+server.port=8080

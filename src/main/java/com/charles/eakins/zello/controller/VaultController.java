@@ -36,17 +36,18 @@ public class VaultController {
     private final ZelloApiService zelloService;
     private final ZelloApiConfig zelloApiConfig;
 
-    @Value("${app.target-channel}")
+    // FIX: Provide default values for all @Value annotations
+    @Value("${app.target-channel:Emergency Communications}")
     private String targetChannel;
-    @Value("${app.messages-per-page}")
+    @Value("${app.messages-per-page:50}")
     private int messagesPerPage;
-    @Value("${app.display-timezone}")
+    @Value("${app.display-timezone:America/Los_Angeles}")
     private String displayTimezone;
-    @Value("${app.session-timeout-seconds}")
+    @Value("${app.session-timeout-seconds:1800}")
     private int sessionTimeoutSeconds;
-    @Value("${app.session-warning-seconds}")
+    @Value("${app.session-warning-seconds:15}")
     private int sessionWarningSeconds;
-    @Value("${app.auto-refresh-seconds}")
+    @Value("${app.auto-refresh-seconds:60}")
     private int autoRefreshSeconds;
 
     public VaultController(ZelloApiService zelloService, ZelloApiConfig zelloApiConfig) {
@@ -148,7 +149,8 @@ public class VaultController {
         model.addAttribute("is_day_view", true);
         model.addAttribute("viewing_date", requestedDate);
 
-        boolean isTodayView = requestedDate.equals(LocalDate.now(displayZoneId));
+        LocalDate today = LocalDate.now(displayZoneId);
+        boolean isTodayView = requestedDate.equals(today);
         model.addAttribute("isTodayView", isTodayView);
 
         addCalendarDataToModel(model, year, month);
@@ -180,35 +182,24 @@ public class VaultController {
 
     @GetMapping("/api/messages/latest")
     @ResponseBody
-    public ResponseEntity<List<ProcessedMessage>> getLatestMessages(
-            @RequestParam("since") long lastTimestamp,
-            @RequestParam(value = "day", required = false) String day, // ADDED: Optional day parameter
-            HttpSession session) {
-
+    public ResponseEntity<List<ProcessedMessage>> getLatestMessages(@RequestParam("since") long lastTimestamp, @RequestParam(value = "day", required = false) String day, HttpSession session) {
         if (!isUserAuthenticated(session)) { return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build(); }
         String sid = getSid(session);
         if (sid == null) { return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build(); }
 
         long startTs = lastTimestamp + 1;
-        Long endTs = null; // Default to no end time
-
-        // FIX: If the 'day' parameter is provided, enforce the date boundary
+        Long endTs = null;
         if (day != null && !day.isEmpty()) {
             try {
                 LocalDate requestedDate = LocalDate.parse(day);
                 ZoneId displayZoneId = ZoneId.of(displayTimezone);
                 endTs = requestedDate.plusDays(1).atStartOfDay(displayZoneId).toEpochSecond();
                 log.info("API Refresh: Filtering for day {}, with end timestamp {}", day, endTs);
-            } catch (DateTimeException e) {
-                log.warn("API Refresh: Received invalid day parameter: {}", day);
-                // Proceed without the end timestamp if the date is invalid
-            }
+            } catch (DateTimeException e) { log.warn("API Refresh: Received invalid day parameter: {}", day); }
         }
 
         HistoryResponse history = zelloService.getMessages(sid, targetChannel, 0, 100, startTs, endTs);
-        if (history == null || history.getMessages() == null || history.getMessages().isEmpty()) {
-            return ResponseEntity.ok(Collections.emptyList());
-        }
+        if (history == null || history.getMessages() == null || history.getMessages().isEmpty()) { return ResponseEntity.ok(Collections.emptyList()); }
 
         Map<String, String> userMap = zelloService.getUserDisplayNameMap(sid);
         ZoneId displayZoneId = ZoneId.of(displayTimezone);

@@ -2,23 +2,27 @@ package com.charles.eakins.zello;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.builder.SpringApplicationBuilder; // <-- ADDED
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
-import org.springframework.boot.web.servlet.support.SpringBootServletInitializer; // <-- ADDED
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 
 @SpringBootApplication
 @ConfigurationPropertiesScan("com.charles.eakins.zello.config")
-// STEP 4: Extend SpringBootServletInitializer
 public class ZelloAggregatorApplication extends SpringBootServletInitializer {
 
-    // STEP 5: Override the configure method
+    // FIX: Define the clean file path without any prefixes.
+    public static final String CONFIG_FILE_PATH = "config/application.properties";
+
     @Override
     protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
-        return application.sources(ZelloAggregatorApplication.class);
+        // Use the "optional:" prefix only here, where Spring is reading the location.
+        return application.sources(ZelloAggregatorApplication.class)
+                .properties("spring.config.location=optional:classpath:/application.properties,optional:" + CONFIG_FILE_PATH);
     }
 
     public static void main(String[] args) {
+        // Use the "optional:" prefix only here, where Spring is reading the location.
+        System.setProperty("spring.config.location", "optional:classpath:/application.properties,optional:" + CONFIG_FILE_PATH);
         SpringApplication.run(ZelloAggregatorApplication.class, args);
     }
-
 }
