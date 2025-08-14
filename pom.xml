@@ -9,7 +9,7 @@
     </parent>
     <groupId>io.github.ceakins</groupId>
     <artifactId>zello-vault-aggregator</artifactId>
-    <version>1.0.0.0-snapshot</version>
+    <version>1.0.0.0</version>
     <name>Zello Message Vault Aggregator</name>
     <description>A Spring Boot application to view Zello message history.</description>
     <packaging>${packaging.type}</packaging>
@@ -36,7 +36,7 @@
         <connection>scm:git:git://github.com/ceakins/zello-vault-aggregator.git</connection>
         <developerConnection>scm:git:ssh://github.com:ceakins/zello-vault-aggregator.git</developerConnection>
         <url>https://github.com/ceakins/zello-vault-aggregator/tree/main</url>
-      <tag>zello-vault-aggregator-1.0.0.2</tag>
+      <tag>zello-vault-aggregator-1.0.0.0</tag>
   </scm>
 
     <properties>
