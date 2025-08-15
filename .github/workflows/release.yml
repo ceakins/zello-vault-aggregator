@@ -1,55 +1,65 @@
 # .github/workflows/release.yml
 
-name: Create GitHub Release
+name: Publish to Maven Central and Create GitHub Release
 
 # This workflow triggers only when you push a new tag that starts with 'v'
 on:
   push:
     tags:
-      - 'v*' # e.g., v1.0, v2.3.4
+      - 'v[0-9]+.[0-9]+.[0-9]+*' # e.g., v1.0.0, v2.3.4
 
-# These permissions are required for the release action to create a release
-# and upload assets to it.
+# These permissions are required for creating a GitHub Release
 permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-sign-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Check out the repository code at the specific tag
+      # === Step 1: Setup Environment ===
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up JDK 21 and Maven
-      - name: Set up JDK 21
+      - name: Set up JDK 21 and Maven
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: 'maven'
+          # This configures Maven's settings.xml for Sonatype OSSRH
+          server-id: ossrh
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_TOKEN
 
-      # Step 3: Build the Standalone JAR
-      # This runs the default 'mvn package' command.
-      - name: Build Standalone JAR
-        run: mvn -B clean package --file pom.xml
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }} # Leave this empty if your key has no passphrase
 
-      # Step 4: Build the Deployable WAR
-      # This activates the 'deployable-war' profile as specified in your README.
+      # === Step 2: Deploy to Maven Central ===
+      # This command builds the main JAR, sources, javadoc, signs them all,
+      # and deploys them to the Sonatype staging repository.
+      - name: Deploy to Maven Central
+        run: mvn -B -P release deploy
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_TOKEN: ${{ secrets.OSSRH_TOKEN }}
+
+      # === Step 3: Build the Deployable WAR for the GitHub Release ===
+      # This runs separately because the 'deploy' goal doesn't handle the WAR profile.
       - name: Build Deployable WAR
         run: mvn -B clean package -P deployable-war --file pom.xml
 
-      # Step 5: Create the Release and Upload Artifacts
-      # This action uses the tag as the release name and uploads the specified files.
+      # === Step 4: Create the GitHub Release and Upload Artifacts ===
+      # This uses the artifacts from the previous build steps and attaches them.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          # A list of files to upload as assets to the release.
-          # These paths match the output locations from your Maven build.
+          # A list of all the files we want to attach to the release page.
           files: |
             target/zello-vault-aggregator.jar
+            target/zello-vault-aggregator-javadoc.jar
+            target/zello-vault-aggregator-sources.jar
             target/zello-vault-aggregator.war
         env:
-          # The GITHUB_TOKEN is a special secret automatically provided by GitHub
-          # that gives the workflow permission to act on behalf of the repository.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
