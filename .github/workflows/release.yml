@@ -2,18 +2,16 @@
 
 name: Publish to Maven Central and Create GitHub Release
 
-# This workflow triggers only when you push a new tag that starts with 'v'
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*' # e.g., v1.0.0, v2.3.4
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
 
-# These permissions are required for creating a GitHub Release
 permissions:
   contents: write
 
 jobs:
-  build-and-release: # Renamed job for clarity
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       # === Step 1: Setup Environment ===
@@ -26,8 +24,9 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           server-id: ossrh
-          server-username: OSSRH_USERNAME
-          server-password: OSSRH_TOKEN
+          # CORRECTED: Use the secret values, not literal strings
+          server-username: ${{ secrets.OSSRH_USERNAME }}
+          server-password: ${{ secrets.OSSRH_TOKEN }}
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v6
@@ -35,27 +34,19 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
-      # === Step 2: Build, Sign, and Deploy to Maven Central ===
-      # This is the primary build. It creates the JAR, sources, and Javadoc.
-      # The 'deploy' goal will compile, package, sign, and upload everything.
+      # === Step 2: Build and Deploy to Maven Central ===
       - name: Build and Deploy to Maven Central
+        # The env block is no longer needed here, as setup-java has already configured settings.xml
         run: mvn -B -P release deploy
-        env:
-          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          OSSRH_TOKEN: ${{ secrets.OSSRH_TOKEN }}
 
       # === Step 3: Build the Deployable WAR (without cleaning) ===
-      # We run this as a separate step. Crucially, we DO NOT run 'clean' here,
-      # so the JARs from the previous step are preserved.
       - name: Build Deployable WAR
         run: mvn -B package -P deployable-war --file pom.xml
 
       # === Step 4: Create the GitHub Release and Upload All Artifacts ===
-      # Now the target/ directory contains both the JARs from Step 2 and the WAR from Step 3.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          # A list of all the files we want to attach to the release page.
           files: |
             target/zello-vault-aggregator.jar
             target/zello-vault-aggregator-javadoc.jar
