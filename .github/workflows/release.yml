@@ -18,15 +18,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21 and Maven
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          server-id: ossrh
-          # CORRECTED: Use the secret values, not literal strings
-          server-username: ${{ secrets.OSSRH_USERNAME }}
-          server-password: ${{ secrets.OSSRH_TOKEN }}
+          # NOTE: We have REMOVED the server-username and server-password from this step.
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v6
@@ -34,16 +31,30 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
-      # === Step 2: Build and Deploy to Maven Central ===
+      # === Step 2: Manually Create settings.xml ===
+      # This is the new, critical step. We build the settings file ourselves.
+      - name: Create settings.xml
+        run: |
+          mkdir -p ~/.m2
+          echo "<settings xmlns='http://maven.apache.org/SETTINGS/1.0.0' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd'>
+                  <servers>
+                    <server>
+                      <id>ossrh</id>
+                      <username>${{ secrets.OSSRH_USERNAME }}</username>
+                      <password>${{ secrets.OSSRH_TOKEN }}</password>
+                    </server>
+                  </servers>
+                </settings>" > ~/.m2/settings.xml
+
+      # === Step 3: Build and Deploy to Maven Central ===
       - name: Build and Deploy to Maven Central
-        # The env block is no longer needed here, as setup-java has already configured settings.xml
         run: mvn -B -P release deploy
 
-      # === Step 3: Build the Deployable WAR (without cleaning) ===
+      # === Step 4: Build the Deployable WAR (without cleaning) ===
       - name: Build Deployable WAR
         run: mvn -B package -P deployable-war --file pom.xml
 
-      # === Step 4: Create the GitHub Release and Upload All Artifacts ===
+      # === Step 5: Create the GitHub Release and Upload All Artifacts ===
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
