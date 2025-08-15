@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  build-sign-and-deploy:
+  build-and-release: # Renamed job for clarity
     runs-on: ubuntu-latest
     steps:
       # === Step 1: Setup Environment ===
@@ -25,7 +25,6 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          # This configures Maven's settings.xml for Sonatype OSSRH
           server-id: ossrh
           server-username: OSSRH_USERNAME
           server-password: OSSRH_TOKEN
@@ -34,24 +33,25 @@ jobs:
         uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }} # Leave this empty if your key has no passphrase
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
-      # === Step 2: Deploy to Maven Central ===
-      # This command builds the main JAR, sources, javadoc, signs them all,
-      # and deploys them to the Sonatype staging repository.
-      - name: Deploy to Maven Central
+      # === Step 2: Build, Sign, and Deploy to Maven Central ===
+      # This is the primary build. It creates the JAR, sources, and Javadoc.
+      # The 'deploy' goal will compile, package, sign, and upload everything.
+      - name: Build and Deploy to Maven Central
         run: mvn -B -P release deploy
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_TOKEN: ${{ secrets.OSSRH_TOKEN }}
 
-      # === Step 3: Build the Deployable WAR for the GitHub Release ===
-      # This runs separately because the 'deploy' goal doesn't handle the WAR profile.
+      # === Step 3: Build the Deployable WAR (without cleaning) ===
+      # We run this as a separate step. Crucially, we DO NOT run 'clean' here,
+      # so the JARs from the previous step are preserved.
       - name: Build Deployable WAR
-        run: mvn -B clean package -P deployable-war --file pom.xml
+        run: mvn -B package -P deployable-war --file pom.xml
 
-      # === Step 4: Create the GitHub Release and Upload Artifacts ===
-      # This uses the artifacts from the previous build steps and attaches them.
+      # === Step 4: Create the GitHub Release and Upload All Artifacts ===
+      # Now the target/ directory contains both the JARs from Step 2 and the WAR from Step 3.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
