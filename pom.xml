@@ -11,7 +11,7 @@
     <groupId>io.github.ceakins</groupId>
     <artifactId>zello-vault-aggregator</artifactId>
     <!-- FIX #1: Set the version to the NEXT development version -->
-    <version>1.0.0.3-SNAPSHOT</version>
+    <version>1.0.0.3</version>
     <name>Zello Message Vault Aggregator</name>
     <description>A Spring Boot application to view Zello message history.</description>
     <packaging>${packaging.type}</packaging>
