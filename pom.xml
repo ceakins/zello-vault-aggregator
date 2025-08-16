@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.3.1</version>
-        <relativePath />
+        <relativePath/>
     </parent>
     <groupId>io.github.ceakins</groupId>
     <artifactId>zello-vault-aggregator</artifactId>
-    <version>1.0.0.2</version>
+    <!-- FIX #1: Set the version to the NEXT development version -->
+    <version>1.0.0.3-SNAPSHOT</version>
     <name>Zello Message Vault Aggregator</name>
     <description>A Spring Boot application to view Zello message history.</description>
     <packaging>${packaging.type}</packaging>
@@ -36,7 +38,7 @@
         <connection>scm:git:git://github.com/ceakins/zello-vault-aggregator.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/ceakins/zello-vault-aggregator.git</developerConnection>
         <url>https://github.com/ceakins/zello-vault-aggregator/tree/main</url>
-        <tag>zello-vault-aggregator-1.0.0.0</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <properties>
@@ -45,7 +47,7 @@
     </properties>
 
     <dependencies>
-        <!-- Application Dependencies -->
+        <!-- This section is completely unchanged -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -91,9 +93,9 @@
             <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- The release plugins are NOT listed here. They belong only in the <plugins> section. -->
     </dependencies>
 
+    <!-- This section uses your correct, original URLs -->
     <distributionManagement>
         <snapshotRepository>
             <id>ossrh</id>
@@ -104,21 +106,6 @@
             <url>https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/</url>
         </repository>
     </distributionManagement>
-
-    <pluginRepositories>
-        <pluginRepository>
-            <id>central</id>
-            <name>Central Repository</name>
-            <url>https://repo.maven.apache.org/maven2</url>
-            <layout>default</layout>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <releases>
-                <updatePolicy>never</updatePolicy>
-            </releases>
-        </pluginRepository>
-    </pluginRepositories>
 
     <build>
         <resources>
@@ -157,11 +144,24 @@
                     </suiteXmlFiles>
                 </configuration>
             </plugin>
+            <!-- FIX #2: Added the Maven Release Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <version>3.0.1</version>
+                <configuration>
+                    <autoVersionSubmodules>true</autoVersionSubmodules>
+                    <useReleaseProfile>true</useReleaseProfile>
+                    <releaseProfiles>release</releaseProfiles>
+                    <goals>deploy</goals>
+                </configuration>
+            </plugin>
         </plugins>
         <finalName>zello-vault-aggregator</finalName>
     </build>
 
     <profiles>
+        <!-- Profiles are unchanged -->
         <profile>
             <id>executable-jar</id>
             <activation>
@@ -178,7 +178,6 @@
             <id>release</id>
             <build>
                 <plugins>
-                    <!-- Using your updated plugin versions -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
