@@ -2,63 +2,59 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Setup - Zello Aggregator</title>
+    <title>Setup - Zello Vault Aggregator</title>
     <style>
         body { font-family: sans-serif; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px 0; }
-        .setup-container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
-        h1 { text-align: center; color: #333; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .form-group { margin-bottom: 15px; }
-        .full-width { grid-column: 1 / -1; }
-        label { display: block; margin-bottom: 5px; color: #555; font-weight: bold; }
-        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        .btn-save { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1.1em; margin-top: 20px; }
-        .required-note { font-size: 0.9em; color: #dc3545; text-align: center; margin-bottom: 20px; }
+        .setup-container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h1 { text-align: center; color: #333; margin-bottom: 10px; }
+        p { text-align: center; color: #666; margin-top: 0; margin-bottom: 30px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #555; font-weight: bold; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .btn-save { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1.1em; }
+        .btn-save:hover { background-color: #218838; }
+        .error-message { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 10px; border-radius: 5px; margin-bottom: 20px; text-align: center; }
+        h3 { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px; }
     </style>
 </head>
 <body>
 <div class="setup-container">
     <h1>Initial Application Setup</h1>
-    <p class="required-note">Fields marked with * are required.</p>
+    <p>Please provide the necessary configuration to start the application.</p>
+
+    <div th:if="${error}" class="error-message" th:text="${error}"></div>
+
     <form th:action="@{/setup}" method="post">
-        <div class="form-grid">
-            <div class="form-group">
-                <label for="zelloNetwork">Zello Network Name *</label>
-                <input type="text" id="zelloNetwork" name="zelloNetwork" placeholder="e.g., my-company" required>
-            </div>
-            <div class="form-group">
-                <label for="zelloApiKey">Zello API Key *</label>
-                <input type="text" id="zelloApiKey" name="zelloApiKey" required>
-            </div>
-            <div class="form-group">
-                <label for="appChannel">Target Channel</label>
-                <input type="text" id="appChannel" name="appChannel" th:value="${defaultChannel}">
-            </div>
-            <div class="form-group">
-                <label for="appTimezone">Display Timezone</label>
-                <input type="text" id="appTimezone" name="appTimezone" th:value="${defaultTimezone}">
-            </div>
-            <div class="form-group">
-                <label for="serverPort">Server Port</label>
-                <input type="number" id="serverPort" name="serverPort" th:value="${defaultPort}">
-            </div>
-            <div class="form-group">
-                <label for="appMessagesPerPage">Messages Per Page</label>
-                <input type="number" id="appMessagesPerPage" name="appMessagesPerPage" th:value="${defaultMessagesPerPage}">
-            </div>
-            <div class="form-group">
-                <label for="appSessionTimeout">Session Timeout (seconds)</label>
-                <input type="number" id="appSessionTimeout" name="appSessionTimeout" th:value="${defaultSessionTimeout}">
-            </div>
-            <div class="form-group">
-                <label for="appSessionWarning">Session Warning (seconds)</label>
-                <input type="number" id="appSessionWarning" name="appSessionWarning" th:value="${defaultSessionWarning}">
-            </div>
-            <div class="form-group full-width">
-                <label for="appAutoRefresh">Auto-Refresh Interval (seconds)</label>
-                <input type="number" id="appAutoRefresh" name="appAutoRefresh" th:value="${defaultAutoRefresh}">
-            </div>
+
+        <h3>Zello API Configuration</h3>
+        <div class="form-group">
+            <label for="zello.api.network">Zello Network Name:</label>
+            <input type="text" id="zello.api.network" name="zello.api.network" th:value="${defaults['zello.api.network']}" required>
         </div>
+        <div class="form-group">
+            <label for="zello.api.key">Zello API Key:</label>
+            <input type="text" id="zello.api.key" name="zello.api.key" th:value="${defaults['zello.api.key']}" required>
+        </div>
+
+        <h3>Application Settings</h3>
+        <div class="form-group">
+            <label for="app.target-channel">Target Channel:</label>
+            <input type="text" id="app.target-channel" name="app.target-channel" th:value="${defaults['app.target-channel']}" required>
+        </div>
+        <div class="form-group">
+            <label for="app.display-timezone">Display Timezone:</label>
+            <input type="text" id="app.display-timezone" name="app.display-timezone" th:value="${defaults['app.display-timezone']}" required>
+        </div>
+
+        <!-- Hidden fields for other defaults -->
+        <input type="hidden" name="zello.api.username" th:value="${defaults['zello.api.username']}">
+        <input type="hidden" name="zello.api.password" th:value="${defaults['zello.api.password']}">
+        <input type="hidden" name="app.messages-per-page" th:value="${defaults['app.messages-per-page']}">
+        <input type="hidden" name="app.session-timeout-seconds" th:value="${defaults['app.session-timeout-seconds']}">
+        <input type="hidden" name="app.session-warning-seconds" th:value="${defaults['app.session-warning-seconds']}">
+        <input type="hidden" name="app.auto-refresh-seconds" th:value="${defaults['app.auto-refresh-seconds']}">
+        <input type="hidden" name="server.port" th:value="${defaults['server.port']}">
+
         <button type="submit" class="btn-save">Save Configuration</button>
     </form>
 </div>
