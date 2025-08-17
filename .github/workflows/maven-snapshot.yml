@@ -1,0 +1,28 @@
+name: Deploy SNAPSHOT to Maven Central
+
+on:
+  push:
+    branches:
+      - main # Or your development branch
+
+jobs:
+  deploy-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Create settings.xml
+        run: |
+          mkdir -p ~/.m2
+          echo "<settings><servers><server><id>ossrh</id><username>${{ secrets.OSSRH_USERNAME }}</username><password>${{ secrets.OSSRH_TOKEN }}</password></server></servers></settings>" > ~/.m2/settings.xml
+
+      - name: Deploy SNAPSHOT version
+        run: mvn -B deploy
